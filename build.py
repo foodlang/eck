@@ -38,7 +38,7 @@ def get_all_files_from_directory(directory):
 def compile_all(directory):
 	files = get_all_files_from_directory(directory)
 	for file in files:
-		result = compile_single_file(file, 'obj/' + Path(file).name + '.o', cflags)
+		result = compile_single_file(file, 'obj/' + Path(file).stem + '.o', cflags)
 		if not result:
 			print('Failed to compile')
 			return False
