@@ -45,6 +45,9 @@ def compile_all(directory):
 	return True
 
 # The actual compilation process is here
+for file in os.scandir('./obj'):
+	if not file.name.endswith('.gitkeep'):
+		os.remove(file.path)
 compile_all('./src/')
 if not os.path.exists('./bin'):
 	os.mkdir('./bin')

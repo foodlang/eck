@@ -3,6 +3,6 @@
 /* Compiler entrypoint */
 int main(void)
 {
-	puts("Hello, World!");
+	puts("Hello");
 	return 0;
 }
