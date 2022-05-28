@@ -1,6 +1,6 @@
 #include <stdio.h>
 
-// Compiler entrypoint
+/* Compiler entrypoint */
 int main(void)
 {
 	puts("Hello, World!");

@@ -1,4 +1,4 @@
-#!/bin/python
+#!/usr/bin/env python3
 # Build script for embryonic Food compiler
 
 import os
@@ -7,7 +7,7 @@ import platform
 from pathlib import Path
 
 # Insert the command/path to the compiler to use.
-compiler = 'tcc'
+compiler = 'cc'
 cflags = '-Og -Wall -Wextra -pedantic -Werror'
 output = 'eck'
 if platform.system() == 'Windows':
