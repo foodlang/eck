@@ -36,9 +36,11 @@ static void s_skip_spaces(void)
 /* Converts a hex digit to an integer value */
 static uint8_t s_hex_to_int(char hex)
 {
-	if (isdigit(hex)) return hex - '0';
-	else if (hex >= 'a' && hex <= 'f') return hex - 'a' + 10;
-	else return hex - 'A' + 10;
+	uint8_t ret = 0;
+	if (isdigit(hex)) ret = hex - '0';
+	else if (hex >= 'a' && hex <= 'f') ret = hex - 'a' + 10;
+	else ret = hex - 'A' + 10;
+	return ret;
 }
 
 /* Raises 10 to an exponent */
@@ -52,7 +54,7 @@ static long double s_pow10(int8_t raiseTo)
 }
 
 /* Parses a number */
-static int s_parse_number(lex_value *yield)
+static bool_t s_parse_number(lex_value *yield)
 {
 	uint64_t result = 0;
 	char c = s_advance();
@@ -67,8 +69,6 @@ static int s_parse_number(lex_value *yield)
 				result = result * 2 + c - '0';
 				c = s_advance();
 			}
-			yield->u64 = result;
-			return 0;
 		/* Hex parsing */
 		} else if (c == 'x' || c == 'X') {
 			c = s_advance();
@@ -76,17 +76,15 @@ static int s_parse_number(lex_value *yield)
 				result = result * 16 + s_hex_to_int(c);
 				c = s_advance();
 			}
-			yield->u64 = result;
-			return 0;
 		/* Octal parsing */
 		} else {
 			while (c >= '0' && c <= '7') {
 				result = result * 8 + c - '0';
 				c = s_advance();
 			}
-			yield->u64 = result;
-			return 0;
 		}
+		yield->u64 = result;
+		return FALSE;
 	}
 
 	/* Base 10 parsing */
@@ -128,10 +126,142 @@ static int s_parse_number(lex_value *yield)
 			ldResult *= s_pow10(raiseTo);
 		}
 		yield->long_double = ldResult;
-		return 1;
+		return TRUE;
 	}
 	yield->u64 = result;
-	return 0;
+	return FALSE;
+}
+
+/* Parses an escape sequence. c is the original character. */
+static char s_parse_escape_sequence(char c)
+{
+	if (c == '\\') {
+		switch (s_getc()) {
+		/* Alert https://en.wikipedia.org/wiki/Bell_character */
+			case 'a':
+			case 'A':
+				(void)s_advance();
+				c = 0x07;
+				break;
+		/* Backspace https://en.wikipedia.org/wiki/Backspace */
+			case 'b':
+			case 'B':
+				(void)s_advance();
+				c = 0x08;
+				break;
+		/* Escape Character https://en.wikipedia.org/wiki/Escape_character */
+			case 'e':
+			case 'E':
+				(void)s_advance();
+				c = 0x1B;
+				break;
+		/* Form Feed https://en.wikipedia.org/wiki/Formfeed */
+			case 'f':
+			case 'F':
+				(void)s_advance();
+				c = 0x0C;
+				break;
+		/* Line Feed https://en.wikipedia.org/wiki/Newline */
+			case 'n':
+			case 'N':
+				(void)s_advance();
+				c = 0x0A;
+				break;
+		/* Carriage Return https://en.wikipedia.org/wiki/Carriage_Return */
+			case 'r':
+			case 'R':
+				(void)s_advance();
+				c = 0x0D;
+				break;
+		/* Horizontal Tab https://en.wikipedia.org/wiki/Horizontal_Tab */
+			case 't':
+			case 'T':
+				(void)s_advance();
+				c = 0x09;
+				break;
+		/* Vertical Tab https://en.wikipedia.org/wiki/Vertical_Tab */
+			case 'v':
+			case 'V':
+				(void)s_advance();
+				c = 0x0B;
+				break;
+		/* Backslash Character */
+			case '\\':
+				(void)s_advance();
+				c = 0x5C;
+				break;
+		/* Apostrophe */
+			case '\'':
+				(void)s_advance();
+				c = 0x27;
+				break;
+		/* Quotation Mark */
+			case '"':
+				(void)s_advance();
+				c = 0x22;
+				break;
+			default: {
+				c = s_getc();
+				/* \000 - \777:  */
+				if (c >= '0' && c <= '7') {
+					uint64_t resultC = 0;
+					register int counter = 0;
+					c = s_advance();
+					while (c >= '0' && c <= '7') {
+						if (counter > 3) {
+							break;
+						}
+						resultC = resultC * 8 + c - '0';
+						c = s_advance();
+						counter++;
+					}
+					ungetc(c, s_fstream);
+					c = resultC > UINT8_MAX ? UINT8_MAX : resultC;
+					break;
+				} else if (c == 'x' || c == 'X') {
+					uint64_t resultC = 0;
+					register int counter = 0;
+					c = s_advance(); /* skipping x or X */
+					c = s_advance(); /* fetching first character */
+					while (isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
+						if (counter > 2) {
+							break;
+						}
+						resultC = resultC * 16 + s_hex_to_int(c);
+						c = s_advance();
+						counter++;
+					}
+					ungetc(c, s_fstream);
+					c = resultC > UINT8_MAX ? UINT8_MAX : resultC;
+					break;
+				} else {
+					fprintf(stderr, "lexer, escape sequence parser: unknown escape sequence \\%c\n", c);
+					abort();
+				}
+			}
+		}
+	}
+	return c;
+}
+
+/* Parses a character literal. */
+static void s_parse_character_literal(lex_value *yield)
+{
+	uint64_t result = 0;
+	char c = '\0';
+	while (s_getc() != '\'') {
+		c = s_advance();
+		/* escape sequence */
+		c = s_parse_escape_sequence(c);
+		result = result << 8 | c;
+	}
+	if (c == EOF) {
+		fprintf(stderr, "lexer, character literal parser: character literal does not end\n");
+		abort();
+	}
+	(void)s_advance();
+	yield->u64 = result;
+	return;
 }
 
 /*
@@ -150,7 +280,7 @@ void lex_setup(FILE *stream)
 	s_fstreamPos = 0;
 }
 
-int lex_fetch(lex_token *tokenBuffer)
+bool_t lex_fetch(lex_token *tokenBuffer)
 {
 	char c;
 	lex_token tokenInstance;
@@ -163,15 +293,22 @@ int lex_fetch(lex_token *tokenBuffer)
 	s_skip_spaces();
 	c = s_getc();
 	if (c == EOF) {
-		return 0;
+		return FALSE;
 	} else if (isdigit(c)) {
-		int isFloat;
-		
+		bool_t isFloat;
+
 		tokenInstance.pos = s_fstreamPos;
 		isFloat = s_parse_number(&tokenInstance.value);
 		tokenInstance.kind = isFloat ? '0' << 8 | '.' : '0';
 		*tokenBuffer = tokenInstance;
-		return 1;
+		return TRUE;
+	} else if (c == '\'') {
+		c = s_advance();
+		tokenInstance.pos = s_fstreamPos;
+		s_parse_character_literal(&tokenInstance.value);
+		tokenInstance.kind = '0';
+		*tokenBuffer = tokenInstance;
+		return TRUE;
 	}
-	return 0;
+	return FALSE;
 }

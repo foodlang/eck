@@ -14,6 +14,6 @@
 #include "../common/def.h"
 
 void lex_setup(FILE *stream);
-int lex_fetch(lex_token *tokenBuffer);
+bool_t lex_fetch(lex_token *tokenBuffer);
 
 #endif
