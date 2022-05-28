@@ -8,7 +8,7 @@ from pathlib import Path
 
 # Insert the command/path to the compiler to use.
 compiler = 'cc'
-cflags = '-Og -Wall -Wextra -pedantic -Werror'
+cflags = '-Og -Wall -Wextra -pedantic -Werror -std=gnu89 -Wshadow -g'
 output = 'eck'
 if platform.system() == 'Windows':
 	output = 'eck.exe'
