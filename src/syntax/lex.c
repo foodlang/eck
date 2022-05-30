@@ -6,9 +6,78 @@
 
 #include <stdlib.h>
 #include <ctype.h>
+#include <string.h>
 
-static FILE *s_fstream;
-static uint64_t s_fstreamPos;
+typedef KEYPAIR_T(const char *, keyword) lex_keyword_table_entry;
+static lex_keyword_table_entry s_keywords[] =
+{
+	{ "atomic", KEYWORD_ATOMIC },
+	{ "break", KEYWORD_BREAK },
+	{ "bool", KEYWORD_BOOL },
+	{ "byte", KEYWORD_BYTE },
+	{ "case", KEYWORD_CASE },
+	{ "char", KEYWORD_SBYTE },
+	{ "class", KEYWORD_CLASS },
+	{ "const", KEYWORD_CONST },
+	{ "continue", KEYWORD_CONTINUE },
+	{ "default", KEYWORD_DEFAULT },
+	{ "do", KEYWORD_DO },
+	{ "double", KEYWORD_DOUBLE },
+	{ "else", KEYWORD_ELSE },
+	{ "end", KEYWORD_END },
+	{ "enum", KEYWORD_ENUM },
+	{ "extern", KEYWORD_EXTERN },
+	{ "false", KEYWORD_FALSE },
+	{ "float", KEYWORD_FLOAT },
+	{ "for", KEYWORD_FOR },
+	{ "function", KEYWORD_FUNCTION },
+	{ "goto", KEYWORD_GOTO },
+	{ "half", KEYWORD_HALF },
+	{ "if", KEYWORD_IF },
+	{ "int", KEYWORD_INT },
+	{ "lengthof", KEYWORD_LENGTHOF },
+	{ "long", KEYWORD_LONG },
+	{ "namespace", KEYWORD_NAMESPACE },
+	{ "new", KEYWORD_NEW },
+	{ "null", KEYWORD_NULL },
+	{ "public", KEYWORD_PUBLIC },
+	{ "record", KEYWORD_RECORD },
+	{ "restrict", KEYWORD_RESTRICT },
+	{ "return", KEYWORD_RETURN },
+	{ "sbyte", KEYWORD_SBYTE },
+	{ "short", KEYWORD_SHORT },
+	{ "size", KEYWORD_ULONG },
+	{ "sizeof", KEYWORD_SIZEOF },
+	{ "start", KEYWORD_START },
+	{ "static", KEYWORD_STATIC },
+	{ "string", KEYWORD_STRING },
+	{ "struct", KEYWORD_STRUCT },
+	{ "switch", KEYWORD_SWITCH },
+	{ "true", KEYWORD_TRUE },
+	{ "uchar", KEYWORD_BYTE },
+	{ "union", KEYWORD_UNION },
+	{ "uint", KEYWORD_UINT },
+	{ "ulong", KEYWORD_ULONG },
+	{ "ushort", KEYWORD_USHORT },
+	{ "using", KEYWORD_USING },
+	{ "void", KEYWORD_VOID },
+	{ "volatile", KEYWORD_VOLATILE },
+	{ "while", KEYWORD_WHILE },
+	{ "i8", KEYWORD_SBYTE },
+	{ "u8", KEYWORD_BYTE },
+	{ "i16", KEYWORD_SHORT },
+	{ "u16", KEYWORD_USHORT },
+	{ "f16", KEYWORD_HALF },
+	{ "i32", KEYWORD_INT },
+	{ "u32", KEYWORD_UINT },
+	{ "f32", KEYWORD_FLOAT },
+	{ "i64", KEYWORD_LONG },
+	{ "u64", KEYWORD_ULONG },
+	{ "f64", KEYWORD_DOUBLE },
+};
+
+static FILE *s_fstream; /* Input file stream */
+static uint64_t s_fstreamPos; /* The current position in the stream */
 
 /* Returns current character. */
 static char s_getc(void)
@@ -16,6 +85,13 @@ static char s_getc(void)
 	char result = fgetc(s_fstream);
 	ungetc(result, s_fstream);
 	return result;
+}
+
+/* Rewinds in the stream. */
+static void s_rewind_once(char c)
+{
+	ungetc(c, s_fstream);
+	s_fstreamPos--;
 }
 
 /* Goes forward then returns the next character */
@@ -215,7 +291,7 @@ static char s_parse_escape_sequence(char c)
 						c = s_advance();
 						counter++;
 					}
-					ungetc(c, s_fstream);
+					s_rewind_once(c);
 					c = resultC > UINT8_MAX ? UINT8_MAX : resultC;
 					break;
 				} else if (c == 'x' || c == 'X') {
@@ -231,7 +307,7 @@ static char s_parse_escape_sequence(char c)
 						c = s_advance();
 						counter++;
 					}
-					ungetc(c, s_fstream);
+					s_rewind_once(c);
 					c = resultC > UINT8_MAX ? UINT8_MAX : resultC;
 					break;
 				} else {
@@ -264,6 +340,37 @@ static void s_parse_character_literal(lex_value *yield)
 	yield->u64 = result;
 	return;
 }
+
+/* Parses either a keyword or an identifier. */
+static keyword s_parse_keyword_ident(char c, lex_value *yield)
+{
+	string_builder strBuilder;
+	uint32_t i = 0;
+
+	strbuilder_alloc(&strBuilder, 16);
+	c = s_advance();
+	while (isalnum(c) || c == '_') {
+		strbuilder_append_char(&strBuilder, c);
+		c = s_advance();
+	}
+	s_rewind_once(c);
+
+	printf("{%s}\n", strBuilder.storage);
+	for (i = 0; i < sizeof(s_keywords)/sizeof(s_keywords[0]); i++) {
+		if (!strcmp(strBuilder.storage, s_keywords[i].key)) {
+			strbuilder_free(&strBuilder);
+			return s_keywords[i].value;
+		}
+	}
+	yield->str = malloc(strBuilder.length + 1);
+	strcpy(yield->str, strBuilder.storage);
+	strbuilder_free(&strBuilder);
+	return 'I';
+}
+
+
+/* ======================== PUBLIC FUNCTIONS BELOW ======================== */
+
 
 /*
 	Usage:
@@ -301,6 +408,11 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 		tokenInstance.pos = s_fstreamPos;
 		isFloat = s_parse_number(&tokenInstance.value);
 		tokenInstance.kind = isFloat ? '0' << 8 | '.' : '0';
+		*tokenBuffer = tokenInstance;
+		return TRUE;
+	} else if (isalpha(c)) {
+		tokenInstance.pos = s_fstreamPos;
+		tokenInstance.kind = s_parse_keyword_ident(c, &tokenInstance.value);
 		*tokenBuffer = tokenInstance;
 		return TRUE;
 	} else if (c == '\'') {
