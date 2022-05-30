@@ -220,7 +220,7 @@ static char s_parse_escape_sequence(char c)
 					break;
 				} else if (c == 'x' || c == 'X') {
 					uint64_t resultC = 0;
-					register int counter = 0;
+					register int counter = 1;
 					c = s_advance(); /* skipping x or X */
 					c = s_advance(); /* fetching first character */
 					while (isdigit(c) || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')) {
@@ -249,11 +249,12 @@ static void s_parse_character_literal(lex_value *yield)
 {
 	uint64_t result = 0;
 	char c = '\0';
-	while (s_getc() != '\'') {
+	while (c != '\'') {
 		c = s_advance();
 		/* escape sequence */
 		c = s_parse_escape_sequence(c);
 		result = result << 8 | c;
+		c = s_getc();
 	}
 	if (c == EOF) {
 		fprintf(stderr, "lexer, character literal parser: character literal does not end\n");
