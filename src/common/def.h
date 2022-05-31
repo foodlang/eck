@@ -3,11 +3,18 @@
 
 /*
 	Common type definitions and such for ECK
+	Also includes templates a string builder.
 */
 
 #include <stdint.h>
 #include <stddef.h>
 
+/*
+	Lexical tokens might need to store
+	values to allow the parser to decipher
+	the meaning of the text. This union
+	represents it all.
+*/
 typedef union lex_value
 {
 	uint8_t u8;
@@ -20,6 +27,12 @@ typedef union lex_value
 	char *str;
 } lex_value;
 
+/*
+	A lexical token is the most basic syntax
+	unit that compiler knows. It represents
+	a bit of text that cannot be broken down
+	further.
+*/
 typedef struct lex_token
 {
 	uint64_t kind;   /* The kind of the token */
@@ -27,6 +40,11 @@ typedef struct lex_token
 	lex_value value; /* The value passed with the token */
 } lex_token;
 
+/*
+	A string builder is used to build
+	strings that need a lot of write
+	access.
+*/
 typedef struct string_builder
 {
 	char *storage;  /* Where to store the string (heap-allocated string) */
@@ -47,7 +65,9 @@ void strbuilder_append_string(string_builder *builder, char *string);
 /* Frees up all of the resources used by a string builder. */
 void strbuilder_free(string_builder *builder);
 
+/* C89 does not provide a bool type, like C99's _Bool. */
 typedef signed char bool_t;
+
 #ifndef NULL
 	#define NULL (void *)0
 #endif
@@ -58,8 +78,16 @@ typedef signed char bool_t;
 	#define FALSE 0
 #endif
 
-/* Key pair */
-#define KEYPAIR_T(K, V) struct { K key; V value; }
+/*
+	This simple *template* macro is used to
+	represent a key/value pair.
+*/
+#define KEYPAIR_T(K, V) \
+struct                  \
+{                       \
+	K key;              \
+	V value;            \
+}
 
 /*
 	Keyword Enum

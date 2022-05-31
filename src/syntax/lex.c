@@ -8,6 +8,22 @@
 #include <ctype.h>
 #include <string.h>
 
+/*
+	Used to tell the lexer to redo the lexing,
+	cause something is wrong or a comment was
+	found in the source code.
+*/
+#define REDO_LEXING 0xC0FFEE42
+
+/*
+	Below is the keyword table.
+	Each keyword is represented by an integer value.
+	To check if a potential keyword or identifier is
+	the keyword, you have to lookup in this table.
+	(The table has string keys that contain the keyword,
+	and the keyword integer value is stored as the value
+	of the table entry.)
+*/
 typedef KEYPAIR_T(const char *, keyword) lex_keyword_table_entry;
 static lex_keyword_table_entry s_keywords[] =
 {
@@ -174,6 +190,7 @@ static bool_t s_parse_number(lex_value *yield)
 		long double ldResult = result;
 		long double scale = 1;
 		c = s_advance();
+		/* Decimal part */
 		while (isdigit(c)) {
 			scale /= 10;
 			ldResult = ldResult + (long double)(c - '0') * scale;
@@ -189,6 +206,7 @@ static bool_t s_parse_number(lex_value *yield)
 				c = s_advance();
 				raiseTo = -raiseTo;
 			}
+			/* The exponent is found here. */
 			while (isdigit(c)) {
 				uint64_t resultVal = raiseTo + (c - '0') * expScale;
 				if (resultVal > UINT8_MAX) {
@@ -278,7 +296,7 @@ static char s_parse_escape_sequence(char c)
 				break;
 			default: {
 				c = s_getc();
-				/* \000 - \777:  */
+				/* \000 - \777: (Octal) */
 				if (c >= '0' && c <= '7') {
 					uint64_t resultC = 0;
 					register int counter = 0;
@@ -294,6 +312,7 @@ static char s_parse_escape_sequence(char c)
 					s_rewind_once(c);
 					c = resultC > UINT8_MAX ? UINT8_MAX : resultC;
 					break;
+				/* 0x00 - 0xFF: (Hexadecimal) */
 				} else if (c == 'x' || c == 'X') {
 					uint64_t resultC = 0;
 					register int counter = 1;
@@ -324,15 +343,27 @@ static char s_parse_escape_sequence(char c)
 static void s_parse_character_literal(lex_value *yield)
 {
 	uint64_t result = 0;
+	size_t length = 0;
 	char c = '\0';
-	while (c != '\'') {
+	/*
+		Reading characters until they cannot be
+		part of the character literal. There
+		can only be 8 chars in a character literal.
+	*/
+	while (c != '\'' && length <= 8) {
 		c = s_advance();
 		/* escape sequence */
 		c = s_parse_escape_sequence(c);
 		result = result << 8 | c;
 		c = s_getc();
+		length++;
 	}
-	if (c == EOF) {
+	/*
+		Checking if the character literal ended.
+		We might have ran out of character literal
+		space too.
+	*/
+	if (c == EOF || c != '\'') {
 		fprintf(stderr, "lexer, character literal parser: character literal does not end\n");
 		abort();
 	}
@@ -344,28 +375,170 @@ static void s_parse_character_literal(lex_value *yield)
 /* Parses either a keyword or an identifier. */
 static keyword s_parse_keyword_ident(char c, lex_value *yield)
 {
+	bool_t couldBeKeyword = TRUE;
 	string_builder strBuilder;
 	uint32_t i = 0;
-
 	strbuilder_alloc(&strBuilder, 16);
 	c = s_advance();
+
+	/*
+		Characters are read until they
+		can no longer be part of an identifier
+		or keyword. If an uppercase is found,
+		automatically the compiler is notified
+		that it cannot be a keyword (Food keywords
+		cannot have uppercases by decision, and use
+		snake_case.)
+	*/
 	while (isalnum(c) || c == '_') {
+		if (c != '_' && isupper(c))
+			couldBeKeyword = FALSE;
 		strbuilder_append_char(&strBuilder, c);
 		c = s_advance();
 	}
 	s_rewind_once(c);
 
-	printf("{%s}\n", strBuilder.storage);
+	if (couldBeKeyword)
 	for (i = 0; i < sizeof(s_keywords)/sizeof(s_keywords[0]); i++) {
+		/* Comparing the potential keyword to the list of keywords. */
 		if (!strcmp(strBuilder.storage, s_keywords[i].key)) {
 			strbuilder_free(&strBuilder);
 			return s_keywords[i].value;
 		}
 	}
+
+	/*
+		If an identifier is found, the kind of the
+		token will become 'I' or 73. It is also very
+		important to free up the previous memory, we
+		don't want any memory leaks.
+	*/
 	yield->str = malloc(strBuilder.length + 1);
 	strcpy(yield->str, strBuilder.storage);
 	strbuilder_free(&strBuilder);
 	return 'I';
+}
+
+/* Parses an operator. */
+static uint64_t s_parse_op(char c)
+{
+	/*
+		Operators can be divided in multiple categories:
+		 - Simples:
+		    Simple operators only contain one character, which
+			makes them really easy to parse.
+		 - Doubles:
+		    These operators can be either one character or two
+			characters (subcategories include equal suffixed,
+			arrows.)
+		 - Triples:
+		 	These operators can have three characters.
+		 - Repeated:
+		 	These operators can repeat up to three times but
+			can only be the same character (ex. '...')
+	*/
+	switch (c) {
+	/* Simples */
+		case '(':
+		case ')':
+		case '[':
+		case ']':
+		case '{':
+		case '}':
+		case '~':
+		case '?':
+		case ';':
+		case ',':
+			return s_advance();
+	/* Doubles like: C, CC, C= */
+		case '+':
+		case '&':
+		case '|':
+			c = s_advance();
+			if (s_getc() == c || s_getc() == '=')
+				return c << 8 | s_advance();
+			return c;
+	/* Doubles but with arrows: C, CC, C=, C> */
+		case '-':
+		case '=':
+			c = s_advance();
+			if (s_getc() == c || s_getc() == '=' || s_getc() == '>')
+				return c << 8 | s_advance();
+			return c;
+	/* Doubles that cannot repeat: C, C= */
+		case '!':
+		case '*':
+		case '%':
+		case '^':
+			c = s_advance();
+			if (s_getc() == '=')
+				return c << 8 | s_advance();
+			return c;
+	/* Doubles with repeat only: C, CC */
+		case ':':
+			c = s_advance();
+			if (s_getc() == c)
+				return c << 8 | s_advance();
+			return c;
+	/* Triples with repeat only: C, CC, CCC */
+		case '.':
+			c = s_advance();
+			if (s_getc() == c) {
+				c = s_advance();
+				if (s_getc() == c)
+					return c << 16 | c << 8 | s_advance();
+				return c << 8 | c;
+			}
+			return c;
+	/* Classic Triples: C, CC, C=, CC= */
+		case '<':
+		case '>':
+			c = s_advance();
+			if (s_getc() == c) {
+				c = s_advance();
+				if (s_getc() == '=')
+					return c << 16 | c << 8 | s_advance();
+				return c << 8 | c;
+			} else if (s_getc() == '=')
+				return c << 8 | s_advance();
+			return c;
+
+	/*
+		Operators that start with slash are weird to parse,
+	   	because they could be comments, just like this one.
+	*/
+		case '/':
+			c = s_advance();
+			/* Multiline comments (C-style) */
+			if (s_getc() == '*') {
+				c = s_advance();
+				while (s_getc() != EOF) {
+					c = s_advance();
+					if (c == '*' && s_getc() == '/') {
+						c = s_advance();
+						return REDO_LEXING;
+					}
+				}
+			/* Single line style comments (C++-style) */
+			} else if (s_getc() == '/') {
+				c = s_advance();
+				while (s_getc() != '\n' && s_getc() != EOF)
+					c = s_advance();
+				return REDO_LEXING;
+			}
+		/* Actual / and /= operators here */
+			if (s_getc() == '=')
+				return c << 8 | s_advance();
+			return c;
+	}
+	/*
+		If no operator is recognized,
+		then return 0 cause something's up.
+		The character is also consumed,
+		because it would be very unpractical
+		to generate errors over and over.
+	*/
+	return 0;
 }
 
 
@@ -400,28 +573,41 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 
 	s_skip_spaces();
 	c = s_getc();
+	tokenInstance.pos = s_fstreamPos;
+	/* Checking whether we have reached the end. */
 	if (c == EOF) {
 		return FALSE;
+	/* Number literals */
 	} else if (isdigit(c)) {
-		bool_t isFloat;
-
-		tokenInstance.pos = s_fstreamPos;
-		isFloat = s_parse_number(&tokenInstance.value);
+		bool_t isFloat = s_parse_number(&tokenInstance.value);
 		tokenInstance.kind = isFloat ? '0' << 8 | '.' : '0';
 		*tokenBuffer = tokenInstance;
 		return TRUE;
+	/* Keywords or identifiers */
 	} else if (isalpha(c)) {
-		tokenInstance.pos = s_fstreamPos;
 		tokenInstance.kind = s_parse_keyword_ident(c, &tokenInstance.value);
 		*tokenBuffer = tokenInstance;
 		return TRUE;
+	/* Character literals */
 	} else if (c == '\'') {
 		c = s_advance();
-		tokenInstance.pos = s_fstreamPos;
 		s_parse_character_literal(&tokenInstance.value);
 		tokenInstance.kind = '0';
 		*tokenBuffer = tokenInstance;
 		return TRUE;
 	}
-	return FALSE;
+
+	/* Operators are parsed here */
+	tokenInstance.kind = s_parse_op(c);
+	/*
+		If a comment was found or for another reason,
+		we might have to re-read a new token. This is
+		recursive.
+	*/
+	if (tokenInstance.kind == REDO_LEXING)
+		return lex_fetch(tokenBuffer);
+	if (tokenInstance.kind) *tokenBuffer = tokenInstance; 
+
+	/* Stray character. */
+	return tokenInstance.kind;
 }
