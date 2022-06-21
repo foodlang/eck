@@ -304,4 +304,7 @@ typedef struct expression
 /* Parses an expression. */
 expression *parse_expression(void);
 
+/* Deletes an expression tree. */
+void delete_tree(expression *expr);
+
 #endif

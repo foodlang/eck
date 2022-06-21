@@ -53,3 +53,11 @@ void *memorize_raw(void *item, size_t size)
 	memcpy(yield, item, size);
 	return yield;
 }
+
+void delete_tree(expression *expr)
+{
+	if (expr->left) delete_tree(expr->left);
+	if (expr->right) delete_tree(expr->right);
+	if (expr->extra) delete_tree(expr->extra);
+	free(expr);
+}

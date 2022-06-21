@@ -7,6 +7,7 @@
 #include "../common/def.h"
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 /* A constructor for a literal expression. */
 static expression *s_literal_expression(uint32_t kind, lex_token *token, foodtype *type)
@@ -85,21 +86,21 @@ static expression *parse_literal(void)
 			 literalType.kind = TYPE_DOUBLE;
 		else literalType.kind = TYPE_FLOAT;
 		literalType.extra = NULL;
-		yield = s_literal_expression(EXPRESSION_INTEGER_LITERAL, MEMORIZE(lex_token, &s_currentToken), &literalType);
+		yield = s_literal_expression(EXPRESSION_INTEGER_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
 	} else if (s_currentToken.kind == KEYWORD_TRUE) {
 		literalType.qualifiers = 0;
 		literalType.kind = TYPE_BOOL;
 		literalType.extra = NULL;
-		yield = s_literal_expression(EXPRESSION_BOOLEAN_LITERAL, MEMORIZE(lex_token, &s_currentToken), &literalType);
+		yield = s_literal_expression(EXPRESSION_BOOLEAN_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
 	} else if (s_currentToken.kind == KEYWORD_FALSE) {
 		literalType.qualifiers = 0;
 		literalType.kind = TYPE_BOOL;
 		literalType.extra = NULL;
-		yield = s_literal_expression(EXPRESSION_BOOLEAN_LITERAL, MEMORIZE(lex_token, &s_currentToken), &literalType);
+		yield = s_literal_expression(EXPRESSION_BOOLEAN_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
 	}
@@ -127,9 +128,9 @@ static expression *parse_postfix(void)
 			abort();
 		}
 		if (s_currentToken.kind == OP2('+', '+')) {
-			yield = s_unary_expression(EXPRESSION_POSTFIX_INCREMENT, MEMORIZE(lex_token, &s_currentToken), &yield->type, yield);
+			yield = s_unary_expression(EXPRESSION_POSTFIX_INCREMENT, &s_currentToken, &yield->type, yield);
 		} else if (s_currentToken.kind == OP2('-', '-')) {
-			yield = s_unary_expression(EXPRESSION_POSTFIX_DECREMENT, MEMORIZE(lex_token, &s_currentToken), &yield->type, yield);
+			yield = s_unary_expression(EXPRESSION_POSTFIX_DECREMENT, &s_currentToken, &yield->type, yield);
 		}
 		lex_fetch(&s_currentToken);
 	}
@@ -153,8 +154,24 @@ static expression *parse_prefix(void)
 	 || op.kind == KEYWORD_SIZEOF
 	 || op.kind == KEYWORD_ALIGNOF) {
 
+		uint32_t kind = 0;
+		switch (op.kind)
+		{
+			case OP2('+', '+'): kind = EXPRESSION_PREFIX_INCREMENT; break;
+			case OP2('-', '-'): kind = EXPRESSION_PREFIX_DECREMENT; break;
+			case '+': kind = EXPRESSION_POSTFIX_UNARY_PLUS; break;
+			case '-': kind = EXPRESSION_POSTFIX_UNARY_MINUS; break;
+			case '!': kind = EXPRESSION_POSTFIX_LOGICAL_NOT; break;
+			case '~': kind = EXPRESSION_POSTFIX_BITWISE_NOT; break;
+			case '*': kind = EXPRESSION_DEREFERENCE; break;
+			case '&': kind = EXPRESSION_ADDRESS_OF; break;
+		}
+		assert(kind);
+
+		/* TODO: Add support for sizeof() and alignof() */
+
 		yield = parse_postfix();
-		yield = s_unary_expression(op.kind, MEMORIZE(lex_token, &op), &yield->type, yield);
+		yield = s_unary_expression(kind, MEMORIZE(lex_token, &op), &yield->type, yield);
 	} else {
 		lex_move(base);
 		yield = parse_postfix();
