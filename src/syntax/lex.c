@@ -2,7 +2,7 @@
 	Lexer for eck
 	See header
 */
-#include "lex.h"
+#include "../common/def.h"
 
 #include <stdlib.h>
 #include <ctype.h>
@@ -27,6 +27,7 @@
 typedef KEYPAIR_T(const char *, keyword) lex_keyword_table_entry;
 static lex_keyword_table_entry s_keywords[] =
 {
+	{ "alignof", KEYWORD_ALIGNOF },
 	{ "atomic", KEYWORD_ATOMIC },
 	{ "break", KEYWORD_BREAK },
 	{ "bool", KEYWORD_BOOL },
@@ -155,6 +156,10 @@ static bool_t s_parse_number(lex_value *yield)
 	if (c == '0') {
 		c = s_advance();
 		/* Binary parsing */
+		if (c != 'b' && c != 'B' && c != 'x' && c != 'X' && !(c >= '0' && c <= '7')) {
+			yield->u64 = result;
+			goto zero;
+		}
 		if (c == 'b' || c == 'B') {
 			c = s_advance();
 			while (c == '0' || c == '1') {
@@ -175,6 +180,7 @@ static bool_t s_parse_number(lex_value *yield)
 				c = s_advance();
 			}
 		}
+		s_rewind_once(c);
 		yield->u64 = result;
 		return FALSE;
 	}
@@ -184,7 +190,8 @@ static bool_t s_parse_number(lex_value *yield)
 		result = result * 10 + c - '0';
 		c = s_advance();
 	}
-
+	s_rewind_once(c);
+zero:
 	/* IEE 754 */
 	if (c == '.') {
 		long double ldResult = result;
@@ -561,6 +568,22 @@ void lex_setup(FILE *stream)
 	s_fstreamPos = 0;
 }
 
+/*
+	Gets the current position of the lexer in the filestream.
+*/
+size_t lex_pos(void)
+{
+	return s_fstreamPos;
+}
+
+/*
+	Moves the lexer to a given position.
+*/
+void lex_move(size_t position)
+{
+	s_fstreamPos = position;
+}
+
 bool_t lex_fetch(lex_token *tokenBuffer)
 {
 	char c;
@@ -608,6 +631,5 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 		return lex_fetch(tokenBuffer);
 	if (tokenInstance.kind) *tokenBuffer = tokenInstance; 
 
-	/* Stray character. */
 	return tokenInstance.kind;
 }

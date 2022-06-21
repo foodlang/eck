@@ -12,9 +12,9 @@ static void s_realloc(string_builder *builder)
 
 void strbuilder_alloc(string_builder *builder, size_t block_size)
 {
-	builder->length = 0; /* None of the string builder is used */
+	builder->length = 0;          /* None of the string builder is used */
 	builder->blklen = block_size; /* Block size */
-	builder->max = block_size; /* By default, it can contain only 16 characters (can scale up) */
+	builder->max = block_size;    /* By default, it can contain only 16 characters (can scale up) */
 	builder->storage = malloc(block_size + 1);   /* Allocates the storage */
 	memset(builder->storage, 0, block_size + 1); /* Sets the storage to zero */
 }
@@ -45,4 +45,11 @@ void strbuilder_free(string_builder *builder)
 	builder->max = 0;
 	free(builder->storage);
 	builder->storage = 0;
+}
+
+void *memorize_raw(void *item, size_t size)
+{
+	void *yield = malloc(size);
+	memcpy(yield, item, size);
+	return yield;
 }
