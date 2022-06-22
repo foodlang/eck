@@ -5,16 +5,8 @@
 #include <string.h>
 #include <stdio.h>
 
-typedef enum type_glbl_kind
-{
-	TYPE_GLBL_NEVER_COMPATIBLE,
-	TYPE_GLBL_INTEGER,
-	TYPE_GLBL_FLOATING,
-	TYPE_GLBL_POINTERS
-} type_glbl_kind;
-
 /* Returns the size of a compatible type, in bytes. */
-static uint8_t s_type_compatible_size(uint8_t type)
+uint8_t type_compatible_size(uint8_t type)
 {
 	switch (type)
 	{
@@ -46,9 +38,10 @@ static uint8_t s_type_compatible_size(uint8_t type)
 	}
 }
 
-static type_glbl_kind s_globalize(foodtype *t)
+type_glbl_kind type_globalize(foodtype *t)
 {
 	assert(t);
+	printf("%d\n", t->kind);
 	switch (t->kind)
 	{
 		/*
@@ -94,7 +87,7 @@ static type_glbl_kind s_globalize(foodtype *t)
 
 		/* The types remaining cannot be casted in any way. */
 		default:
-			return TYPE_GLBL_NEVER_COMPATIBLE;
+			return TYPE_GLBL_NONE_IMPLICIT_CAST;
 	}
 }
 
@@ -111,8 +104,8 @@ bool_t type_compatible(foodtype *left, foodtype *right)
 	}
 
 	/* Getting the global types involved is important. */
-	lGlblKind = s_globalize(left);
-	rGlblKind = s_globalize(right);
+	lGlblKind = type_globalize(left);
+	rGlblKind = type_globalize(right);
 
 	/* TODO: Add support for casts */
 	if (lGlblKind != rGlblKind) {
@@ -154,8 +147,8 @@ void type_expression(foodtype *dest, foodtype *expected, foodtype *left, foodtyp
 			we must get the maximal value of the two.
 		*/
 		uint8_t lSize, rSize;
-		lSize = s_type_compatible_size(left->kind);
-		rSize = s_type_compatible_size(right->kind);
+		lSize = type_compatible_size(left->kind);
+		rSize = type_compatible_size(right->kind);
 
 		/*
 			If both type sizes are compatible, get the type of the left

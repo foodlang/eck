@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 
 /*
 	Used to tell the lexer to redo the lexing,
@@ -633,4 +634,65 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 	if (tokenInstance.kind) *tokenBuffer = tokenInstance; 
 
 	return tokenInstance.kind;
+}
+
+void lex_site(lex_token *site, size_t *line, size_t *col)
+{
+	size_t base;
+	char *contents, *begin, *end;
+
+	/* We don't want any null pointers */
+	assert(site);
+	assert(line);
+	assert(col);
+
+	/* 1. Setting the line and columns to 1,1 is very important. */
+	*line = 1;
+	*col = 1;
+
+	/* 2. Moving to the base */
+	base = lex_pos();
+	lex_move(0);
+	
+	/* 3. Getting the contents of the file up to the current token */
+	contents = malloc(site->pos + 1);
+	memset(contents, 0, site->pos + 1);
+	DISCARD(fread(contents, 1, site->pos, s_fstream));
+
+	/* 4. Restauring the actual position */
+	lex_move(base);
+
+	/* 5. Counting */
+	begin = contents;
+	end = begin + site->pos;
+	for (; begin <= end; begin++) {
+		if (*begin == '\n') {
+			/*
+				Once we find a line, we must increment the line counter
+				AND set back the column counter to zero.
+			*/
+			(*line)++;
+			*col = 0;
+		} else if (*begin == '\r') {
+			/*
+				Carriage return doesn't count as a line, but sets back
+				the column counter to zero.
+			*/
+			*col = 0;
+		} else if (*begin == '\f') {
+			/*
+				It appears that the cool kids now use form feed to do
+				indenting where a line/row is passed, but the column
+				counter doesn't change. Anyways, I've decided to support
+				it cause it still looks nice.
+			*/
+			(*line)++;
+		} else if (*begin == '\t') {
+			/* TODO: Add support for compiler flag to specify tab length */
+			*col += 4;
+		} else {
+			(*col)++;
+		}
+	}
+	free(contents);
 }

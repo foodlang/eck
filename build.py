@@ -12,6 +12,7 @@ cflags = '-Og -Wall -Wextra -pedantic -Werror -std=gnu89 -Wshadow -g'
 output = 'eck'
 if platform.system() == 'Windows':
 	output = 'eck.exe'
+	compiler = "tcc" # requires TCC on Windows
 
 # compile_single_file:
 # This function takes in a filename and arguments (as one continous string)

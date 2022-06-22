@@ -78,7 +78,7 @@ static expression *parse_literal(void)
 			 literalType.kind = TYPE_LONG;
 		else literalType.kind = TYPE_INT;
 		literalType.extra = NULL;
-		yield = s_literal_expression(EXPRESSION_INTEGER_LITERAL, MEMORIZE(lex_token, &s_currentToken), &literalType);
+		yield = s_literal_expression(EXPRESSION_INTEGER_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
 	} else if (s_currentToken.kind == OP2('0', '.')) {
@@ -87,7 +87,7 @@ static expression *parse_literal(void)
 			 literalType.kind = TYPE_DOUBLE;
 		else literalType.kind = TYPE_FLOAT;
 		literalType.extra = NULL;
-		yield = s_literal_expression(EXPRESSION_INTEGER_LITERAL, &s_currentToken, &literalType);
+		yield = s_literal_expression(EXPRESSION_FLOATING_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
 	} else if (s_currentToken.kind == KEYWORD_TRUE) {
@@ -128,8 +128,8 @@ static expression *parse_postfix(void)
 	|| s_currentToken.kind == '['
 	|| s_currentToken.kind == '.'*/) {
 		if (!yield->isLValue) {
-			fprintf(stderr, "postfix operators only take in LValues\n");
-			abort();
+			derror(&s_currentToken, "postfix operators require lvalue operands\n");
+			break;
 		}
 		if (s_currentToken.kind == OP2('+', '+')) {
 			yield = s_unary_expression(EXPRESSION_POSTFIX_INCREMENT, &s_currentToken, &yield->type, yield);
@@ -164,9 +164,12 @@ static expression *parse_prefix(void)
 		assert(kind);
 
 		/* TODO: Add support for sizeof() and alignof() */
-
 		yield = parse_postfix();
-		yield = s_unary_expression(kind, MEMORIZE(lex_token, &op), &yield->type, yield);
+		if (op.kind == '&' && !yield->isLValue) {
+			derror(&op, "address-of operator (&v) requires a lvalue operand\n");
+		}
+
+		yield = s_unary_expression(kind, &op, &yield->type, yield);
 	} else {
 		lex_move(base);
 		yield = parse_postfix();
@@ -174,38 +177,266 @@ static expression *parse_prefix(void)
 	return yield;
 }
 
-#define SIMPLE_BINARY_LAYER(N, P, C) \
-static expression *N(void) \
-{ \
-	expression *left; \
-	expression *right; \
-	foodtype type; \
-	size_t base; \
-	lex_token operator; \
-	left = P(); \
-	base = lex_pos(); \
-	if (!lex_fetch(&operator)) return left; \
-	while (C) { \
-		right = P(); \
-		type_expression(&type, NULL, &left->type, &right->type); \
-		left = s_binary_expression(kind_binary(operator.kind), &operator, &type, left, right); \
-		base = lex_pos(); \
-		if (!lex_fetch(&operator)) break; \
-	} \
-	lex_move(base); \
-	return left; \
+static expression *multiplicative(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = parse_prefix();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '*' || operator.kind == '/' || operator.kind == '%') {
+		right = parse_prefix();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST) {
+		derror(&operator, "type must be arithmetic-capable\n");
+	}*/
+	lex_move(base);
+	return left;
 }
 
-SIMPLE_BINARY_LAYER(multiplicative, parse_prefix, operator.kind == '*' || operator.kind == '/' || operator.kind == '%')
-SIMPLE_BINARY_LAYER(additive, multiplicative, operator.kind == '+' || operator.kind == '-')
-SIMPLE_BINARY_LAYER(shifts, additive, operator.kind == OP2('<', '<') || operator.kind == OP2('>', '>'))
-SIMPLE_BINARY_LAYER(compare, shifts, operator.kind == '<' || operator.kind == '>' || operator.kind == OP2('<', '=') || operator.kind == OP2('>', '='))
-SIMPLE_BINARY_LAYER(equality, compare, operator.kind == OP2('=', '=') || operator.kind == OP2('!', '='))
-SIMPLE_BINARY_LAYER(bitwise_and, equality, operator.kind == '&')
-SIMPLE_BINARY_LAYER(bitwise_xor, bitwise_and, operator.kind == '^')
-SIMPLE_BINARY_LAYER(bitwise_or, bitwise_xor, operator.kind == '|')
-SIMPLE_BINARY_LAYER(logical_and, bitwise_or, operator.kind == OP2('&', '&'))
-SIMPLE_BINARY_LAYER(logical_or, logical_and, operator.kind == OP2('|', '|'))
+static expression *additive(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = multiplicative();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '+' || operator.kind == '-') {
+		right = multiplicative();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST) {
+		derror(&operator, "type must be arithmetic-capable\n");
+	}*/
+	lex_move(base);
+	return left;
+}
+
+static expression *shifts(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = additive();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == OP2('<', '<') || operator.kind == OP2('>', '>')) {
+		right = additive();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "bit shifts require integer operands\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *compare(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = shifts();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '+' || operator.kind == '-') {
+		right = shifts();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST)
+		derror(&operator, "type must be arithmetic-capable\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *equality(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = compare();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == OP2('=', '=') || operator.kind == OP2('!', '=')) {
+		right = compare();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/* no restrictions */
+	lex_move(base);
+	return left;
+}
+
+static expression *bitwise_and(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = equality();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '&') {
+		right = equality();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "type must be integer\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *bitwise_xor(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = bitwise_and();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '^') {
+		right = bitwise_and();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "type must be integer\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *bitwise_or(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = bitwise_xor();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == '|') {
+		right = bitwise_xor();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "type must be integer\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *logical_and(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = bitwise_or();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == OP2('&', '&')) {
+		right = bitwise_or();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "type must be integer or boolean\n");*/
+	lex_move(base);
+	return left;
+}
+
+static expression *logical_or(void)
+{
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+	left = logical_and();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return left;
+	while (operator.kind == OP2('|', '|')) {
+		right = logical_and();
+		type_expression(&type, NULL, &left->type, &right->type);
+		left = s_binary_expression(kind_binary(operator.kind),
+			&operator, & type, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
+		derror(&operator, "type must be integer or boolean\n");*/
+	lex_move(base);
+	return left;
+}
 
 expression *parse_expression(void)
 {

@@ -57,6 +57,8 @@ typedef signed char bool_t;
 	#define FALSE 0
 #endif
 
+#define DISCARD(x) ((void)((x) + 1))
+
 /*
 	This simple *template* macro is used to
 	represent a key/value pair.
@@ -331,5 +333,35 @@ uint8_t max_u8(uint8_t a, uint8_t b);
 
 /* Prints an expression. Useful for debugging. */
 void expression_print(expression *expr, int indent);
+
+typedef enum type_glbl_kind
+{
+	TYPE_GLBL_NONE_IMPLICIT_CAST,
+	TYPE_GLBL_INTEGER,
+	TYPE_GLBL_FLOATING,
+	TYPE_GLBL_POINTERS
+} type_glbl_kind;
+
+/* Returns the size of a compatible type, in bytes. */
+uint8_t type_compatible_size(uint8_t type);
+
+type_glbl_kind type_globalize(foodtype *t);
+
+/* ===== DIAGNOSTICS ===== */
+
+/* Triggers a diagnostic of type information. This diagnostic is usually benign. */
+void dinfo(lex_token *site, const char *fmt, ...);
+
+/* Warnings are diagnostics that indicate a possible bug. */
+void dwarn(lex_token *site, const char *fmt, ...);
+
+/* Errors are diagnostics that indicate a syntax error or something that prevents the compilation. */
+void derror(lex_token *site, const char *fmt, ...);
+
+/* Fatals are errors that come from the compiler itself. These crash the compiler. */
+void dfatal(const char *fmt, ...);
+
+/* Gets 2D coordinates for a token. */
+void lex_site(lex_token *site, size_t *line, size_t *col);
 
 #endif
