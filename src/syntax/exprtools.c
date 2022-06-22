@@ -41,7 +41,6 @@ uint8_t type_compatible_size(uint8_t type)
 type_glbl_kind type_globalize(foodtype *t)
 {
 	assert(t);
-	printf("%d\n", t->kind);
 	switch (t->kind)
 	{
 		/*
@@ -173,7 +172,7 @@ void type_expression(foodtype *dest, foodtype *expected, foodtype *left, foodtyp
 		}
 	}
 
-	printf("left and right parts of the expression are not compatible\n");
+	printf("left and right parts of the expression are not compatible, %d != %d\n", left->kind, right->kind);
 	abort();
 }
 
@@ -287,4 +286,155 @@ void expression_print(expression *expr, int indent)
 		if (expr->right) expression_print(expr->right, indent + 1);
 		if (expr->extra) expression_print(expr->extra, indent + 1);
 	}
+}
+
+uint64_t eval(expression *tree, bool_t *failed)
+{
+	*failed = FALSE;
+	switch (tree->kind)
+	{
+		case EXPRESSION_INTEGER_LITERAL:
+			return tree->token.value.u64;
+		
+		case EXPRESSION_ADDITION:
+			return eval(tree->left, failed) + eval(tree->right, failed);
+		
+		case EXPRESSION_SUBTRACTION:
+			return eval(tree->left, failed) - eval(tree->right, failed);
+		
+		case EXPRESSION_MULTIPLY:
+			return eval(tree->left, failed) * eval(tree->right, failed);
+		
+		case EXPRESSION_DIVISION:
+			return eval(tree->left, failed) / eval(tree->right, failed);
+		
+		case EXPRESSION_MODULO:
+			return eval(tree->left, failed) % eval(tree->right, failed);
+		
+		case EXPRESSION_BITWISE_AND:
+			return eval(tree->left, failed) & eval(tree->right, failed);
+		
+		case EXPRESSION_BITWISE_OR:
+			return eval(tree->left, failed) | eval(tree->right, failed);
+		
+		case EXPRESSION_BITWISE_XOR:
+			return eval(tree->left, failed) ^ eval(tree->right, failed);
+
+		case EXPRESSION_LSHIFT:
+			/* % 64 is to prevent overflow */
+			return eval(tree->left, failed) << eval(tree->right, failed) % 64;
+		
+		case EXPRESSION_RSHIFT:
+			return eval(tree->left, failed) >> eval(tree->right, failed) % 64;
+		
+		case EXPRESSION_LOWER:
+			return eval(tree->left, failed) < eval(tree->right, failed);
+		
+		case EXPRESSION_LOWER_OR_EQUAL:
+			return eval(tree->left, failed) <= eval(tree->right, failed);
+		
+		case EXPRESSION_GREATER:
+			return eval(tree->left, failed) > eval(tree->right, failed);
+		
+		case EXPRESSION_GREATER_OR_EQUAL:
+			return eval(tree->left, failed) >= eval(tree->right, failed);
+		
+		case EXPRESSION_POSTFIX_BITWISE_NOT:
+			return ~eval(tree->left, failed);
+		
+		case EXPRESSION_POSTFIX_LOGICAL_NOT:
+			return !eval(tree->left, failed);
+		
+		case EXPRESSION_LOGICAL_AND:
+			return eval(tree->left, failed) && eval(tree->right, failed);
+
+		case EXPRESSION_LOGICAL_OR:
+			return eval(tree->left, failed) || eval(tree->right, failed);
+		
+		case EXPRESSION_TERNARY_CONDITIONAL:
+			return eval(tree->extra, failed) ? eval(tree->left, failed) : eval(tree->right, failed);
+		
+		case EXPRESSION_BOOLEAN_LITERAL:
+			if (tree->token.kind == KEYWORD_TRUE) return TRUE;
+			else return FALSE;
+
+		default:
+			*failed = TRUE;
+			return 0;
+	}
+}
+
+static void simplify_node(expression **node, uint64_t v)
+{
+	expression *discard;
+	expression *new;
+	
+	new = calloc(1, sizeof(expression));
+	memcpy(&new->type, &(*node)->type, sizeof(foodtype));
+	new->kind = EXPRESSION_INTEGER_LITERAL;
+	new->token.pos = (*node)->token.pos;
+	new->token.kind = '0';
+	new->token.value.u64 = v;
+	discard = *node;
+	*node = new;
+
+	delete_tree(discard);
+}
+
+void esimple(expression **tree)
+{
+	bool_t fail_status = FALSE;
+	uint64_t simplified;
+	assert(tree && *tree);
+
+	/* 1. Simplifying the left branch */
+	if ((*tree)->left) {
+		simplified = eval((*tree)->left, &fail_status);
+		if (!fail_status) {
+			simplify_node(&(*tree)->left, simplified);
+		}
+	}
+
+	/* 2. Simplifying the right branch */
+	if ((*tree)->right) {
+		simplified = eval((*tree)->right, &fail_status);
+		if (!fail_status) {
+			simplify_node(&(*tree)->right, simplified);
+		}
+	}
+
+	/* 3. Simplifying the extra branch */
+	if ((*tree)->extra) {
+		simplified = eval((*tree)->extra, &fail_status);
+		if (!fail_status) {
+			simplify_node(&(*tree)->extra, simplified);
+		}
+	}
+
+	/*
+		4. Final simplification
+		Once all children branches have been simplified,
+		we can simplify the full branch. It is important
+		to do this step to prevent a case like this:
+		(2 * 4) + (3 * 9) -> 8 + 27
+
+		We would want to optimize 8 + 27, right?
+		This is what the lines below do.
+	*/
+	simplified = eval(*tree, &fail_status);
+	if (!fail_status) {
+		simplify_node(tree, simplified);
+	}
+}
+
+size_t eweight(expression *tree)
+{
+	size_t yield = 1;
+	if (!tree) return 0;
+
+	yield += eweight(tree->left);
+	yield += eweight(tree->right);
+	yield += eweight(tree->extra);
+
+	return yield;
 }

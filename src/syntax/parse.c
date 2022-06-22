@@ -104,6 +104,17 @@ static expression *parse_literal(void)
 		yield = s_literal_expression(EXPRESSION_BOOLEAN_LITERAL, &s_currentToken, &literalType);
 		yield->isLValue = FALSE;
 		return yield;
+	} else if (s_currentToken.kind == '(') {
+		yield = parse_expression();
+		if (!lex_fetch(&s_currentToken)) {
+			derror(&s_currentToken, "missing closing parenthesis\n");
+			return yield;
+		}
+		if (s_currentToken.kind != ')') {
+			derror(&s_currentToken, "missing closing parenthesis\n");
+			return yield;
+		}
+		return yield;
 	}
 	fprintf(stderr, "invalid expression\n");
 	abort();
@@ -440,5 +451,7 @@ static expression *logical_or(void)
 
 expression *parse_expression(void)
 {
-	return logical_or();
+	expression *yield = logical_or();
+	esimple(&yield);
+	return yield;
 }
