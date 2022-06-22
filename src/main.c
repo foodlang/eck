@@ -4,21 +4,13 @@
 int main(void)
 {
 	expression *expr;
-	lex_setup(stdin);
+	FILE *tmp = tmpfile();
+	fprintf(tmp, "1 + 2 * 3");
+	fseek(tmp, 0, SEEK_SET);
+	lex_setup(tmp);
 	expr = parse_expression();
-	printf("%d\n", expr->kind);
-	/*if (expr->token.kind == '0') {
-		printf("%ld: %ld\n", expr->token.pos, expr->token.value.u64);
-	} else if (expr->token.kind == ('0' << 8 | '.')) {
-		printf("%ld: %Lf\n", expr->token.pos, expr->token.value.long_double);
-	} else if (expr->token.kind == 'I') {
-		printf("%ld: %s\n", expr->token.pos, expr->token.value.str);
-	} else if (expr->token.kind >= KEYWORD_ATOMIC) {
-		printf("%ld: %ld\n", expr->token.pos, expr->token.kind);
-	} else {
-		printf("%ld: %c\n", expr->token.pos, (char)expr->token.kind);
-	}*/
-
+	expression_print(expr, 0);
 	delete_tree(expr);
+	fclose(tmp);
 	return 0;
 }

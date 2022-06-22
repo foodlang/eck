@@ -61,3 +61,13 @@ void delete_tree(expression *expr)
 	if (expr->extra) delete_tree(expr->extra);
 	free(expr);
 }
+
+uint8_t min_u8(uint8_t a, uint8_t b)
+{
+	return b + ((a - b) & (a - b) >> 7);
+}
+
+uint8_t max_u8(uint8_t a, uint8_t b)
+{
+	return a - ((a - b) & (a - b) >> 7);
+}

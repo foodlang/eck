@@ -581,6 +581,7 @@ size_t lex_pos(void)
 */
 void lex_move(size_t position)
 {
+	fseek(s_fstream, position, SEEK_SET);
 	s_fstreamPos = position;
 }
 

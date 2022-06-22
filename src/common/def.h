@@ -95,7 +95,6 @@ typedef enum type_kind
 	TYPE_FUNCTION,  /* function T(params), size = 8 */
 	TYPE_REFERENCE, /* T&, size = 8 */
 	TYPE_ARRAY,     /* T[length], size = sizeof(T) * length */
-	TYPE_TUPLE,     /* tuple (T, U, ...), size = sizeof(T) + alignof(U) + sizeof(U), etc. */
 	TYPE_STRUCTURE_LIKE /* structures, records, unions, size = ??? */
 } type_kind;
 
@@ -306,5 +305,31 @@ expression *parse_expression(void);
 
 /* Deletes an expression tree. */
 void delete_tree(expression *expr);
+
+/* Figures out the kind of a unary operator. */
+uint32_t kind_unary(uint64_t operator);
+
+/* Figures out the kind of a binary operator. */
+uint32_t kind_binary(uint64_t operator);
+
+/* Gets the precedence of a binary operator. Returns null if this is not a binary operator. */
+uint8_t prec_binary(uint64_t operator);
+
+/*
+	This function performs the complex task of giving a type to the expression.
+	Casts are not handled here, however resizing is done. The expected type is the
+	expected type of the expression, for example in the case of an assignment
+	or function argument.
+*/
+void type_expression(foodtype *dest, foodtype *expected, foodtype *left, foodtype *right);
+
+/* Checks whether two types are compatible. */
+bool_t type_compatible(foodtype *left, foodtype *right);
+
+uint8_t min_u8(uint8_t a, uint8_t b);
+uint8_t max_u8(uint8_t a, uint8_t b);
+
+/* Prints an expression. Useful for debugging. */
+void expression_print(expression *expr, int indent);
 
 #endif

@@ -32,7 +32,7 @@ static expression *s_unary_expression(uint32_t kind, lex_token *token, foodtype 
 	return yield;
 }
 
-/* A constructor for a binary expression.
+/* A constructor for a binary expression. */
 static expression *s_binary_expression(uint32_t kind, lex_token *token, foodtype *type, expression *left, expression *right)
 {
 	expression *yield = malloc(sizeof(expression));
@@ -45,7 +45,7 @@ static expression *s_binary_expression(uint32_t kind, lex_token *token, foodtype
 	return yield;
 }
 
-/ * A constructor for a ternary expression.
+/* A constructor for a ternary expression.
 static expression *s_ternary_expression(uint32_t kind, lex_token *token, foodtype *type, expression *extra, expression *left, expression *right)
 {
 	expression *yield = malloc(sizeof(expression));
@@ -68,6 +68,7 @@ static expression *parse_literal(void)
 	foodtype literalType;
 	expression *yield = NULL;
 	if (!lex_fetch(&s_currentToken)) {
+		fprintf(stderr, "no input is present\n");
 		abort();
 	}
 
@@ -104,15 +105,18 @@ static expression *parse_literal(void)
 		yield->isLValue = FALSE;
 		return yield;
 	}
-	printf("invalid expression\n");
+	fprintf(stderr, "invalid expression\n");
 	abort();
 }
 
 /* Parses all postfix unary operators and also the member access operators. */
 static expression *parse_postfix(void)
 {
-	expression *yield = parse_literal();
+	expression *yield;
+	size_t position;
 
+	yield = parse_literal();
+	position = lex_pos();
 	if (!lex_fetch(&s_currentToken)) {
 		return yield;
 	}
@@ -132,8 +136,10 @@ static expression *parse_postfix(void)
 		} else if (s_currentToken.kind == OP2('-', '-')) {
 			yield = s_unary_expression(EXPRESSION_POSTFIX_DECREMENT, &s_currentToken, &yield->type, yield);
 		}
+		position = lex_pos();
 		lex_fetch(&s_currentToken);
 	}
+	lex_move(position);
 	return yield;
 }
 
@@ -154,18 +160,7 @@ static expression *parse_prefix(void)
 	 || op.kind == KEYWORD_SIZEOF
 	 || op.kind == KEYWORD_ALIGNOF) {
 
-		uint32_t kind = 0;
-		switch (op.kind)
-		{
-			case OP2('+', '+'): kind = EXPRESSION_PREFIX_INCREMENT; break;
-			case OP2('-', '-'): kind = EXPRESSION_PREFIX_DECREMENT; break;
-			case '+': kind = EXPRESSION_POSTFIX_UNARY_PLUS; break;
-			case '-': kind = EXPRESSION_POSTFIX_UNARY_MINUS; break;
-			case '!': kind = EXPRESSION_POSTFIX_LOGICAL_NOT; break;
-			case '~': kind = EXPRESSION_POSTFIX_BITWISE_NOT; break;
-			case '*': kind = EXPRESSION_DEREFERENCE; break;
-			case '&': kind = EXPRESSION_ADDRESS_OF; break;
-		}
+		uint32_t kind = kind_unary(op.kind);
 		assert(kind);
 
 		/* TODO: Add support for sizeof() and alignof() */
@@ -179,7 +174,40 @@ static expression *parse_prefix(void)
 	return yield;
 }
 
+#define SIMPLE_BINARY_LAYER(N, P, C) \
+static expression *N(void) \
+{ \
+	expression *left; \
+	expression *right; \
+	foodtype type; \
+	size_t base; \
+	lex_token operator; \
+	left = P(); \
+	base = lex_pos(); \
+	if (!lex_fetch(&operator)) return left; \
+	while (C) { \
+		right = P(); \
+		type_expression(&type, NULL, &left->type, &right->type); \
+		left = s_binary_expression(kind_binary(operator.kind), &operator, &type, left, right); \
+		base = lex_pos(); \
+		if (!lex_fetch(&operator)) break; \
+	} \
+	lex_move(base); \
+	return left; \
+}
+
+SIMPLE_BINARY_LAYER(multiplicative, parse_prefix, operator.kind == '*' || operator.kind == '/' || operator.kind == '%')
+SIMPLE_BINARY_LAYER(additive, multiplicative, operator.kind == '+' || operator.kind == '-')
+SIMPLE_BINARY_LAYER(shifts, additive, operator.kind == OP2('<', '<') || operator.kind == OP2('>', '>'))
+SIMPLE_BINARY_LAYER(compare, shifts, operator.kind == '<' || operator.kind == '>' || operator.kind == OP2('<', '=') || operator.kind == OP2('>', '='))
+SIMPLE_BINARY_LAYER(equality, compare, operator.kind == OP2('=', '=') || operator.kind == OP2('!', '='))
+SIMPLE_BINARY_LAYER(bitwise_and, equality, operator.kind == '&')
+SIMPLE_BINARY_LAYER(bitwise_xor, bitwise_and, operator.kind == '^')
+SIMPLE_BINARY_LAYER(bitwise_or, bitwise_xor, operator.kind == '|')
+SIMPLE_BINARY_LAYER(logical_and, bitwise_or, operator.kind == OP2('&', '&'))
+SIMPLE_BINARY_LAYER(logical_or, logical_and, operator.kind == OP2('|', '|'))
+
 expression *parse_expression(void)
 {
-	return parse_prefix();
+	return logical_or();
 }
