@@ -70,11 +70,17 @@ struct                  \
 	V value;            \
 }
 
+#define TYPE_CONST_BIT    1
+#define TYPE_VOLATILE_BIT 2
+#define TYPE_RESTRICT_BIT 4
+#define TYPE_ATOMIC_BIT   8
+
 typedef struct foodtype
 {
-	uint8_t qualifiers; /* The qualifiers of the type. */
-	uint8_t kind;       /* The kind of the type. */
-	void    *extra;     /* A pointer to extra data. */
+	uint8_t qualifiers;   /* The qualifiers of the type. */
+	uint8_t kind;         /* The kind of the type. */
+	struct foodtype *sub; /* A pointer to a subtype. */
+	void    *extra;       /* A pointer to extra data. */
 } foodtype;
 
 typedef enum type_kind
@@ -97,6 +103,7 @@ typedef enum type_kind
 	TYPE_FUNCTION,  /* function T(params), size = 8 */
 	TYPE_REFERENCE, /* T&, size = 8 */
 	TYPE_ARRAY,     /* T[length], size = sizeof(T) * length */
+	TYPE_STRING,    /* Pascal strings */
 	TYPE_STRUCTURE_LIKE /* structures, records, unions, size = ??? */
 } type_kind;
 
@@ -325,6 +332,12 @@ uint8_t prec_binary(uint64_t operator);
 */
 void type_expression(foodtype *dest, foodtype *expected, foodtype *left, foodtype *right);
 
+/* Parses a type. Returns false if failed. */
+bool_t tparse(foodtype *dest);
+
+/* Prints a type. */
+void tprint(foodtype *t, int indent);
+
 /* Checks whether two types are compatible. */
 bool_t type_compatible(foodtype *left, foodtype *right);
 
@@ -390,5 +403,47 @@ gbranch_ref gen_expression(generator *g, expression *tree);
 
 /* x86_64 generator */
 extern generator x86_64;
+
+/* ===== SYMBOL RELATED ===== */
+
+/* Represents a symbol. */
+typedef struct symbol
+{
+	const char *name; /* The name of the symbol. */
+	foodtype    t;    /* The type of the symbol. */
+
+} symbol;
+
+/* A scope of access. Contains a list of symbols. */
+typedef struct scope
+{
+	struct scope *parent;    /* The parent scope. NULL if base scope. */ 
+	struct scope **children; /* A pointer to an array of child scopes. */
+	size_t childcount;       /* The number of children scopes in the scope. */
+	symbol *symbols;         /* A pointer to an array of symbols. */
+	size_t symbolcount;      /* The number of symbols in the scope. */
+
+} scope;
+
+/* Enters a new scope. */
+void scope_enter(void);
+
+/*
+	Leaves the current scope and ascends to the parent one.
+	Does nothing if performing on base.
+*/
+void scope_leave(void);
+
+/* Destroys a specific scope. Leave the argument to null to destroy all. */
+void destroy_scopes(scope *s);
+
+/* Checks whether a symbol is declared. */
+bool_t declared(const char *name);
+
+/* Declares a symbol. Fails if already existing. */
+bool_t decl(const char *name, foodtype *t);
+
+/* Gets the type of a declaration. Fails if not found. */
+bool_t decltype(foodtype *dest, const char *name);
 
 #endif
