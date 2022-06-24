@@ -113,7 +113,7 @@ bool_t tparse(foodtype *dest)
 	}
 
 	/* 3. Taking care of pointers, references and arrays */
-	while (tok.kind == '*' || '&'/* || '[' add support for arrays */) {
+	while (tok.kind == '*' || tok.kind == '&'/* || '[' add support for arrays */) {
 		dest->sub = MEMORIZE(foodtype, dest);
 		dest->qualifiers = 0;
 		switch (tok.kind)
@@ -163,7 +163,7 @@ bool_t tparse(foodtype *dest)
 	return TRUE;
 }
 
-#define TCASE(T) case T: printf("%s\n", #T); break;
+#define TCASE(T) case T: printf("%s", #T); break;
 
 void tprint(foodtype *t, int indent)
 {
@@ -200,17 +200,17 @@ void tprint(foodtype *t, int indent)
 		TCASE(TYPE_VOID)
 		
 		case TYPE_POINTER:
-			printf("Pointer ->\n");
+			printf("Pointer ->");
 			tprint(t->sub, indent + 1);
 			break;
 		
 		case TYPE_REFERENCE:
-			printf("Reference ->\n");
+			printf("Reference ->");
 			tprint(t->sub, indent + 1);
 			break;
 		
 		default:
-			printf("(Unknown Type %d)\n", t->kind);
+			printf("(Unknown Type %d)", t->kind);
 			break;
 	}
 }

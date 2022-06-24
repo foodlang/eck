@@ -118,3 +118,24 @@ bool_t decltype(foodtype *dest, const char *name)
 	}
 	abort(); /* Not supposed to happen. Kept here just in case. */
 }
+
+static void dump_node(scope *s, int indent)
+{
+	size_t i;
+	int j;
+	for (i = 0; i < s->symbolcount; i++) {
+		for (j = 0; j < indent; j++) {
+			printf("  ");
+		}
+		tprint(&(s->symbols[i].t), 0);
+		printf(" %s;\n", s->symbols[i].name);
+	}
+	for (i = 0; i < s->childcount; i++) {
+		dump_node(s->children[i], indent + 1);
+	}
+}
+
+void dump_all(void)
+{
+	dump_node(&base, 0);
+}

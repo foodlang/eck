@@ -367,6 +367,12 @@ size_t eweight(expression *tree);
 /* Simplifies an expression. */
 void esimple(expression **tree);
 
+/* Parses either an expression, a statement or a declaration. */
+void statement(void);
+
+/* Parses a declaration. */
+void declaration(void);
+
 /* ===== DIAGNOSTICS ===== */
 
 /* Triggers a diagnostic of type information. This diagnostic is usually benign. */
@@ -445,5 +451,8 @@ bool_t decl(const char *name, foodtype *t);
 
 /* Gets the type of a declaration. Fails if not found. */
 bool_t decltype(foodtype *dest, const char *name);
+
+/* Displays all of the declarations and subscopes. */
+void dump_all(void);
 
 #endif

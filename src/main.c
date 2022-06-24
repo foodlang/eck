@@ -3,17 +3,19 @@
 /* Compiler entrypoint */
 int main(void)
 {
-	/*expression *expr;*/
-	foodtype t;
+	/*expression *expr;
+	foodtype t;*/
 	FILE *tmp = tmpfile();
-	fprintf(tmp, "int &const*");
+	fprintf(tmp, "const int *a;");
 	fseek(tmp, 0, SEEK_SET);
 	lex_setup(tmp);
-	if (tparse(&t)) {
+	statement();
+	dump_all();
+	/*if (tparse(&t)) {
 		tprint(&t, 0);
 	} else {
 		dfatal("failed to parse type\n");
-	}
+	}*/
 	/*expr = parse_expression();
 	printf("Resulting expression:\n\n");
 	expression_print(expr, 0);
