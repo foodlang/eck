@@ -20,7 +20,9 @@ if platform.system() == 'Windows':
 # ifilename = inpput
 # ofilename = output
 def compile_single_file(ifilename, ofilename, arguments):
-	result = os.system('{cmd} {flags} -c {i} -o {o}'.format(cmd = compiler, flags = arguments, i = ifilename, o = ofilename))
+	command = '{cmd} {flags} -c {i} -o {o}'.format(cmd = compiler, flags = arguments, i = ifilename, o = ofilename)
+	print(" - " + command)
+	result = os.system(command)
 	if result != 0:
 		return False
 	return True

@@ -452,6 +452,6 @@ static expression *logical_or(void)
 expression *parse_expression(void)
 {
 	expression *yield = logical_or();
-	esimple(&yield);
+	simple(&yield);
 	return yield;
 }

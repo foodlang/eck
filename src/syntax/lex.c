@@ -156,11 +156,12 @@ static bool_t s_parse_number(lex_value *yield)
 	/* Octal, binary and hex number parsing */
 	if (c == '0') {
 		c = s_advance();
-		/* Binary parsing */
 		if (c != 'b' && c != 'B' && c != 'x' && c != 'X' && !(c >= '0' && c <= '7')) {
+			s_rewind_once(c);
 			yield->u64 = result;
 			goto zero;
 		}
+		/* Binary parsing */
 		if (c == 'b' || c == 'B') {
 			c = s_advance();
 			while (c == '0' || c == '1') {
@@ -181,9 +182,6 @@ static bool_t s_parse_number(lex_value *yield)
 				c = s_advance();
 			}
 		}
-		s_rewind_once(c);
-		yield->u64 = result;
-		return FALSE;
 	}
 
 	/* Base 10 parsing */

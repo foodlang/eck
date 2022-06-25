@@ -347,6 +347,9 @@ uint8_t max_u8(uint8_t a, uint8_t b);
 /* Prints an expression. Useful for debugging. */
 void expression_print(expression *expr, int indent);
 
+/* Whether the type is unsigned. */
+bool_t is_unsigned(foodtype *t);
+
 typedef enum type_glbl_kind
 {
 	TYPE_GLBL_NONE_IMPLICIT_CAST,
@@ -366,6 +369,9 @@ size_t eweight(expression *tree);
 
 /* Simplifies an expression. */
 void esimple(expression **tree);
+
+/* True if the expression is binary. Casts do not count. */
+bool_t is_binary(expression *e);
 
 /* Parses either an expression, a statement or a declaration. */
 void statement(void);
@@ -390,25 +396,16 @@ void dfatal(const char *fmt, ...);
 /* Gets 2D coordinates for a token. */
 void lex_site(lex_token *site, size_t *line, size_t *col);
 
-typedef void *gbranch_ref;
+/* ===== GENERATION ===== */
 
-typedef struct generator
-{
-	void (*clear)(gbranch_ref r); /* Deallocates a branch reference. */
-	gbranch_ref (*primary)(lex_value v); /* Generates primary tree branches (literal values.) */
-	gbranch_ref (*add)(gbranch_ref l, gbranch_ref r); /* Generates code for an addition */
-	gbranch_ref (*sub)(gbranch_ref l, gbranch_ref r); /* Generates code for a subtraction */
-	gbranch_ref (*mul)(gbranch_ref l, gbranch_ref r); /* Generates code for a multiplication */
-	gbranch_ref (*div)(gbranch_ref l, gbranch_ref r); /* Generates code for a division. */
-	gbranch_ref (*mod)(gbranch_ref l, gbranch_ref r); /* Generates code for a modulo. */
-
-} generator;
+/* The file where the assembly will be outputted. */
+extern FILE *asm_target;
 
 /* Generates an expression. */
-gbranch_ref gen_expression(generator *g, expression *tree);
+int g_expression(expression *tree);
 
-/* x86_64 generator */
-extern generator x86_64;
+/* Frees a register. */
+void rfree(int reg);
 
 /* ===== SYMBOL RELATED ===== */
 

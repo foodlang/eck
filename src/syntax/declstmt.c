@@ -66,7 +66,15 @@ void statement(void)
 				expression *tree;
 				lex_move(base);
 				tree = parse_expression();
-				(void)tree; /* TODO: Something with the expression... */
+				if (!lex_fetch(&tok)) {
+					derror(&tok, "expected a semicolon\n");
+					return;
+				}
+				if (tok.kind != ';') {
+					derror(&tok, "expected a semicolon\n");
+					return;
+				}
+				rfree(g_expression(tree));
 			}
 		}
 	}

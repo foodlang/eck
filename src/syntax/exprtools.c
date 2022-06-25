@@ -427,6 +427,27 @@ void esimple(expression **tree)
 	}
 }
 
+bool_t is_unsigned(foodtype *t)
+{
+	if (t->kind == TYPE_BOOL
+	 || t->kind == TYPE_BYTE
+	 || t->kind == TYPE_USHORT
+	 || t->kind == TYPE_UINT
+	 || t->kind == TYPE_ULONG
+	 || t->kind == TYPE_POINTER
+	 || t->kind == TYPE_REFERENCE)
+		return TRUE;
+	return FALSE;
+}
+
+bool_t is_binary(expression *e)
+{
+	if (e->kind >= EXPRESSION_MULTIPLY
+	 && e->kind <= EXPRESSION_LOGICAL_OR)
+		return TRUE;
+	return FALSE;
+}
+
 size_t eweight(expression *tree)
 {
 	size_t yield = 1;
