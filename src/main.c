@@ -7,7 +7,7 @@ int main(void)
 	foodtype t;*/
 	FILE *tmp = tmpfile();
 	asm_target = stdout;
-	fprintf(tmp, "1 * 0 + 4 - 2 * 3 + 45 * (2 + 3);");
+	fprintf(tmp, "{ 1 ? 2 : 3; }");
 	fseek(tmp, 0, SEEK_SET);
 	lex_setup(tmp);
 	statement();

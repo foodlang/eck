@@ -459,3 +459,25 @@ size_t eweight(expression *tree)
 
 	return yield;
 }
+
+bool_t is_sequence_point(expression_kind kind)
+{
+	if (kind == EXPRESSION_LOGICAL_AND
+	 || kind == EXPRESSION_LOGICAL_OR
+	 || kind == EXPRESSION_TERNARY_CONDITIONAL
+	 || kind == EXPRESSION_ASSIGN
+	 || kind == EXPRESSION_SUM_ASSIGN
+	 || kind == EXPRESSION_DIFFERENCE_ASSIGN
+	 || kind == EXPRESSION_PRODUCT_ASSIGN
+	 || kind == EXPRESSION_QUOTIENT_ASSIGN
+	 || kind == EXPRESSION_AND_ASSIGN
+	 || kind == EXPRESSION_XOR_ASSIGN
+	 || kind == EXPRESSION_OR_ASSIGN
+	 || kind == EXPRESSION_LSHIFT_ASSIGN
+	 || kind == EXPRESSION_RSHIFT_ASSIGN
+	 || kind == EXPRESSION_COMPOUND) {
+
+		return TRUE;
+	}
+	return FALSE;
+}

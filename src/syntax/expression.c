@@ -45,7 +45,7 @@ static expression *s_binary_expression(uint32_t kind, lex_token *token, foodtype
 	return yield;
 }
 
-/* A constructor for a ternary expression.
+/* A constructor for a ternary expression. */
 static expression *s_ternary_expression(uint32_t kind, lex_token *token, foodtype *type, expression *extra, expression *left, expression *right)
 {
 	expression *yield = malloc(sizeof(expression));
@@ -57,7 +57,7 @@ static expression *s_ternary_expression(uint32_t kind, lex_token *token, foodtyp
 	yield->left = left;
 	yield->right = right;
 	return yield;
-}*/
+}
 
 /* The currently read lexical token. */
 static lex_token s_currentToken;
@@ -449,9 +449,48 @@ static expression *logical_or(void)
 	return left;
 }
 
+static expression *conditional(void)
+{
+	expression *condition;
+	expression *left;
+	expression *right;
+	foodtype type;
+	size_t base;
+	lex_token operator;
+
+	condition = logical_or();
+	base = lex_pos();
+	if (!lex_fetch(&operator))
+		return condition;
+	while (operator.kind == '?') {
+		if (type_globalize(&condition->type) != TYPE_GLBL_INTEGER) {
+			derror(&operator, "condition must be of boolean or integer type\n");
+			return condition;
+		}
+
+		left = conditional();
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			return condition;
+		if (operator.kind != ':')
+			return condition;
+		
+		right = conditional();
+		type_expression(&type, NULL, &left->type, &right->type);
+		condition = s_ternary_expression(EXPRESSION_TERNARY_CONDITIONAL,
+			&operator, &type, condition, left, right);
+		base = lex_pos();
+		if (!lex_fetch(&operator))
+			break;
+	}
+	lex_move(base);
+	return condition;
+}
+
 expression *parse_expression(void)
 {
-	expression *yield = logical_or();
-	simple(&yield);
+	expression *yield = conditional();
+	expression_print(yield, 0);
+	esimple(&yield);
 	return yield;
 }

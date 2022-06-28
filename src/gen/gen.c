@@ -12,6 +12,12 @@ static regname r32[REG_COUNT] = { "ebx", "ecx", "edx", "r8d", "r9d", "r10d", "r1
 static regname r16[REG_COUNT] = { "bx", "cx", "dx", "r8w", "r9w", "r10w", "r11w", "r12w", "r13w", "r14w", "r15w" };
 static regname r8[REG_COUNT]  = { "bl", "cl", "dl", "r8b", "r9b", "r10b", "r11b", "r12b", "r13b", "r14b", "r15b" };
 static bool_t rmsk[REG_COUNT] = { 0,    0,    0,    0,     0,     0,      0,      0,      0,      0,      0      };
+static size_t label_count = 0;
+
+static size_t label(void)
+{
+	return label_count++;
+}
 
 static int ralloc(void)
 {
@@ -222,6 +228,27 @@ static void g_binary(expression_kind e, int l, int r, int size, bool_t u)
 	}
 }
 
+int g_ternary(expression *tree)
+{
+	int e, l, r, true_label, exit_label;
+	size_t size = rsizeof(&tree->type);
+	e = g_expression(tree->extra);
+	true_label = label();
+	exit_label = label();
+
+	/* Result is stored in right operand c in (a:b:c) */
+	code("; ternary expression");
+	code("test %s, %s", rget(e, 1), rget(e, 1));
+	code("jne .L%ld", true_label);
+	r = g_expression(tree->right);
+	code("jmp .L%ld", exit_label);
+	code("\r.L%ld:", true_label);
+	l = g_expression(tree->left);
+	code("mov %s, %s", rget(r, size), rget(l, size));
+	code("\r.L%ld:", exit_label);
+	return r;
+}
+
 int g_expression(expression *tree)
 {
 	int l = 0xFF, r = 0xFF;
@@ -238,7 +265,7 @@ int g_expression(expression *tree)
 		size_t lw, rw;
 		lw = eweight(tree->left);
 		rw = eweight(tree->right);
-		if (lw > rw) {
+		if (lw > rw || is_sequence_point(tree->kind)) {
 			l = g_expression(tree->left);
 			r = g_expression(tree->right);
 		} else {
@@ -248,7 +275,9 @@ int g_expression(expression *tree)
 		g_binary(tree->kind, l, r, size, is_unsigned(&tree->type));
 		rfree(r);
 		return l;
-	/* TODO: Conditional Operator */
+	} else if (tree->kind == EXPRESSION_TERNARY_CONDITIONAL) {
+		return g_ternary(tree);
+
 	} else {
 		l = g_expression(tree->left);
 	}

@@ -213,6 +213,7 @@ void lex_setup(FILE *stream);
 bool_t lex_fetch(lex_token *tokenBuffer);
 size_t lex_pos(void);
 void lex_move(size_t pos);
+bool_t lex_peek(lex_token *token_buffer);
 
 /*  ===== PARSER DECL ===== */
 
@@ -349,6 +350,8 @@ void expression_print(expression *expr, int indent);
 
 /* Whether the type is unsigned. */
 bool_t is_unsigned(foodtype *t);
+
+bool_t is_sequence_point(expression_kind kind);
 
 typedef enum type_glbl_kind
 {

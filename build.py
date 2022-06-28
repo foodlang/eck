@@ -21,10 +21,11 @@ if platform.system() == 'Windows':
 # ofilename = output
 def compile_single_file(ifilename, ofilename, arguments):
 	command = '{cmd} {flags} -c {i} -o {o}'.format(cmd = compiler, flags = arguments, i = ifilename, o = ofilename)
-	print(" - " + command)
 	result = os.system(command)
 	if result != 0:
+		print('[FAIL] ' + command)
 		return False
+	print('[OK] ' + command)
 	return True
 
 # get_all_files_from_directory:
@@ -54,4 +55,8 @@ for file in os.scandir('./obj'):
 compile_all('./src/')
 if not os.path.exists('./bin'):
 	os.mkdir('./bin')
-os.system('{cmd} {flags} obj/*.o -o bin/{out}'.format(cmd = compiler, flags = cflags, out = output))
+if os.system('{cmd} {flags} obj/*.o -o bin/{out}'.format(cmd = compiler, flags = cflags, out = output)) == 0:
+	print('All done.')
+	exit(0)
+else:
+	print('An (or many) error(s) happened during compilation.')

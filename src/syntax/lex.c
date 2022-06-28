@@ -634,6 +634,15 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 	return tokenInstance.kind;
 }
 
+bool_t lex_peek(lex_token *token_buffer)
+{
+	bool_t yield;
+	size_t pos = lex_pos();
+	yield = lex_fetch(token_buffer);
+	lex_move(pos);
+	return yield;
+}
+
 void lex_site(lex_token *site, size_t *line, size_t *col)
 {
 	size_t base;
