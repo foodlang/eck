@@ -416,6 +416,12 @@ regname rget(int reg, size_t size);
 /* Gets the name of the accumulator according to a specific size. */
 regname racc(size_t size);
 
+/* Jumps to a label. */
+void goto_label(const char *jmp, size_t l);
+
+/* Declares a label here. */
+void here_label(size_t l);
+
 /* Output a line of code. */
 void code(const char *fmt, ...);
 

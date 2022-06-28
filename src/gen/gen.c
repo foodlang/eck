@@ -17,6 +17,16 @@ size_t label(void)
 	return label_count++;
 }
 
+void goto_label(const char *jmp, size_t l)
+{
+	code("%s .L%04X", jmp, l);
+}
+
+void here_label(size_t l)
+{
+	code("\r.L%04X:", l);
+}
+
 static int ralloc(void)
 {
 	int i;
@@ -237,13 +247,13 @@ int g_ternary(expression *tree)
 	/* Result is stored in right operand c in (a:b:c) */
 	code("; ternary expression");
 	code("test %s, %s", rget(e, 1), rget(e, 1));
-	code("jne .L%ld", true_label);
+	goto_label("jne", true_label);
 	r = g_expression(tree->right);
-	code("jmp .L%ld", exit_label);
-	code("\r.L%ld:", true_label);
+	goto_label("jmp", exit_label);
+	here_label(true_label);
 	l = g_expression(tree->left);
 	code("mov %s, %s", rget(r, size), rget(l, size));
-	code("\r.L%ld:", exit_label);
+	here_label(exit_label);
 	return r;
 }
 

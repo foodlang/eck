@@ -108,25 +108,25 @@ void statement(void)
 			condition_label = label();
 			then_label = label();
 			lead_label = label();
-			code("jmp .L%ld", condition_label);
-			code("\r.L%ld:", then_label);
+			goto_label("jmp", condition_label);
+			here_label(then_label);
 			statement();
-			code("jmp .L%ld", lead_label);
+			goto_label("jmp", lead_label);
 			if (lex_peek(&tok) && tok.kind == KEYWORD_ELSE) {
 				lex_fetch(&tok);
 				else_label = label();
-				code("\r.L%ld:", else_label);
+				here_label(else_label);
 				statement();
-				code("jmp .L%ld", lead_label);
+				goto_label("jmp", lead_label);
 			}
-			code("\r.L%ld:", condition_label);
+			here_label(condition_label);
 			condition_reg = g_expression(condition);
 			rfree(condition_reg);
 			code("test %s, %s", rget(condition_reg, 1), rget(condition_reg, 1));
-			code("jne .L%ld", then_label);
+			goto_label("jne", then_label);
 			/* The else label must be non-null at this point, as we generate at least three labels before. */
-			if (else_label) code("jmp .L%ld", else_label);
-			code("\r.L%ld:", lead_label);
+			if (else_label) goto_label("jmp", else_label);
+			here_label(lead_label);
 			return;
 		}
 
@@ -154,14 +154,14 @@ void statement(void)
 			}
 			condition_label = label();
 			lead_label = label();
-			code("\r.L%ld:", condition_label);
+			here_label(condition_label);
 			condition_reg = g_expression(condition);
 			rfree(condition_reg); /* TODO: should this be done? */
 			code("test %s, %s", rget(condition_reg, 1), rget(condition_reg, 1));
-			code("je .L%ld", lead_label);
+			goto_label("je", lead_label);
 			statement();
-			code("jmp .L%ld", condition_label);
-			code("\r.L%ld:", lead_label);
+			goto_label("jmp", condition_label);
+			here_label(lead_label);
 			return;
 		}
 
