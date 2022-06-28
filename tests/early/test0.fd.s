@@ -9,7 +9,15 @@
 	jmp .L2
 	.L0:
 	mov ebx, 7 ; primary(size = 4)
-	test ebx, ebx
+	test bl, bl
 	jne .L1
 	jmp .L3
 	.L2:
+	.L4:
+	mov ebx, 1 ; primary(size = 4)
+	test bl, bl
+	je .L5
+	mov ebx, 6 ; primary(size = 4)
+	jmp .L4
+	.L5:
+	mov ebx, 9 ; primary(size = 4)
