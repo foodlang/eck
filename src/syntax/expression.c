@@ -490,7 +490,6 @@ static expression *conditional(void)
 expression *parse_expression(void)
 {
 	expression *yield = conditional();
-	expression_print(yield, 0);
 	esimple(&yield);
 	return yield;
 }

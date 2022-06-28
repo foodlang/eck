@@ -399,7 +399,28 @@ void dfatal(const char *fmt, ...);
 /* Gets 2D coordinates for a token. */
 void lex_site(lex_token *site, size_t *line, size_t *col);
 
+/* Returns true if the build has successed. */
+bool_t is_clean(void);
+
+/* Sets the build "clean" again. */
+void reset_diags(void);
+
 /* ===== GENERATION ===== */
+
+/* Register name type */
+typedef const char *regname;
+
+/* Gets the name of a register. */
+regname rget(int reg, size_t size);
+
+/* Gets the name of the accumulator according to a specific size. */
+regname racc(size_t size);
+
+/* Output a line of code. */
+void code(const char *fmt, ...);
+
+/* Gets the size of a type. */
+size_t rsizeof(foodtype *t);
 
 /* The file where the assembly will be outputted. */
 extern FILE *asm_target;
@@ -409,6 +430,9 @@ int g_expression(expression *tree);
 
 /* Frees a register. */
 void rfree(int reg);
+
+/* Generates a new label. */
+size_t label(void);
 
 /* ===== SYMBOL RELATED ===== */
 
@@ -454,5 +478,10 @@ bool_t decltype(foodtype *dest, const char *name);
 
 /* Displays all of the declarations and subscopes. */
 void dump_all(void);
+
+/* === DRIVER === */
+
+/* Compiles a single object. */
+bool_t compile_object(const char *source, const char *output);
 
 #endif

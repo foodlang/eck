@@ -558,10 +558,7 @@ static uint64_t s_parse_op(char c)
 void lex_setup(FILE *stream)
 {
 	/* null check. In Food, this is done with the [not_null] attribute. */
-	if (stream == NULL) {
-		fprintf(stderr, "lex_setup, fatal: invalid stream passed\n");
-		abort();
-	}
+	assert(stream);
 
 	s_fstream = stream;
 	s_fstreamPos = 0;
@@ -589,10 +586,7 @@ bool_t lex_fetch(lex_token *tokenBuffer)
 	char c;
 	lex_token tokenInstance;
 	/* null check. In Food, this is done with the [not_null] attribute. */
-	if (tokenBuffer == NULL) {
-		fprintf(stderr, "lex_fetch, fatal: invalid token buffer passed\n");
-		abort();
-	}
+	assert(tokenBuffer);
 
 	s_skip_spaces();
 	c = s_getc();

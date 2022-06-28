@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <stdarg.h>
 
+static bool_t sclean = TRUE;
+
 void dinfo(lex_token *site, const char *fmt, ...)
 {
 	size_t r, c;
@@ -45,6 +47,7 @@ void derror(lex_token *site, const char *fmt, ...)
 	vfprintf(stderr, fmt, v);
 	va_end(v);
 	fprintf(stderr, "\x1B[0m\n");
+	sclean = FALSE;
 }
 
 void dfatal(const char *fmt, ...)
@@ -56,4 +59,14 @@ void dfatal(const char *fmt, ...)
 	va_end(v);
 	fprintf(stderr, "\x1B[0m\n");
 	abort();
+}
+
+bool_t is_clean(void)
+{
+	return sclean;
+}
+
+void reset_diags(void)
+{
+	sclean = FALSE;
 }

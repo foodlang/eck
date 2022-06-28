@@ -83,10 +83,57 @@ void statement(void)
 			return;
 		}
 
+		case KEYWORD_IF: {
+			expression *condition;
+			int condition_reg;
+			size_t condition_size;
+			uint64_t condition_label, then_label, lead_label, else_label = 0;
+			lex_fetch(&tok);
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected open bracket (\n");
+				return;
+			}
+			if (tok.kind != '(') {
+				derror(&tok, "expected open bracket (\n");
+				return;
+			}
+			condition = parse_expression();
+			condition_size = rsizeof(&condition->type);
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected closing bracket )\n");
+				return;
+			}
+			if (tok.kind != ')') {
+				derror(&tok, "expected closing bracket )\n");
+				return;
+			}
+			condition_label = label();
+			then_label = label();
+			lead_label = label();
+			code("jmp .L%ld", condition_label);
+			code("\r.L%ld:", then_label);
+			statement();
+			code("jmp .L%ld", lead_label);
+			if (lex_peek(&tok) && tok.kind == KEYWORD_ELSE) {
+				lex_fetch(&tok);
+				else_label = label();
+				code("\r.L%ld:", else_label);
+				statement();
+				code("jmp .L%ld", lead_label);
+			}
+			code("\r.L%ld:", condition_label);
+			condition_reg = g_expression(condition);
+			code("test %s, %s", rget(condition_reg, condition_size), rget(condition_reg, condition_size));
+			code("jne .L%ld", then_label);
+			/* The else label must be non-null at this point, as we generate at least three labels before. */
+			if (else_label) code("jmp .L%ld", else_label);
+			code("\r.L%ld:", lead_label);
+			return;
+		}
+
 		default: {
 			expression *tree;
 			tree = parse_expression();
-			expression_print(tree, 0);
 			if (!lex_fetch(&tok)) {
 				derror(&tok, "expected a semicolon\n");
 				return;

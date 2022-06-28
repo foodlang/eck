@@ -3,8 +3,6 @@
 #include <assert.h>
 #include <stdarg.h>
 
-typedef const char *regname;
-
 #define REG_COUNT 11
 
 static regname r64[REG_COUNT] = { "rbx", "rcx", "rdx", "r8", "r9", "r10", "r11", "r12", "r13", "r14", "r15", };
@@ -14,7 +12,7 @@ static regname r8[REG_COUNT]  = { "bl", "cl", "dl", "r8b", "r9b", "r10b", "r11b"
 static bool_t rmsk[REG_COUNT] = { 0,    0,    0,    0,     0,     0,      0,      0,      0,      0,      0      };
 static size_t label_count = 0;
 
-static size_t label(void)
+size_t label(void)
 {
 	return label_count++;
 }
@@ -32,7 +30,7 @@ static int ralloc(void)
 	return 0;
 }
 
-static regname rget(int reg, size_t size)
+regname rget(int reg, size_t size)
 {
 	regname *getter;
 	assert(reg < REG_COUNT);
@@ -40,7 +38,7 @@ static regname rget(int reg, size_t size)
 	return getter[reg];
 }
 
-static regname racc(size_t size)
+regname racc(size_t size)
 {
 	return (size == 8) ? "rax" : (size == 4) ? "eax" : (size == 2) ? "ax" : "al";
 }
@@ -53,7 +51,7 @@ void rfree(int reg)
 
 FILE *asm_target;
 
-static void code(const char *fmt, ...)
+void code(const char *fmt, ...)
 {
 	va_list v;
 	va_start(v, fmt);
@@ -63,7 +61,7 @@ static void code(const char *fmt, ...)
 	va_end(v);
 }
 
-static size_t rsizeof(foodtype *t)
+size_t rsizeof(foodtype *t)
 {
 	switch (t->kind)
 	{
