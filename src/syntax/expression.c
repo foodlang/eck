@@ -208,9 +208,6 @@ static expression *multiplicative(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST) {
-		derror(&operator, "type must be arithmetic-capable\n");
-	}*/
 	lex_move(base);
 	return left;
 }
@@ -235,9 +232,6 @@ static expression *additive(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST) {
-		derror(&operator, "type must be arithmetic-capable\n");
-	}*/
 	lex_move(base);
 	return left;
 }
@@ -262,8 +256,6 @@ static expression *shifts(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "bit shifts require integer operands\n");*/
 	lex_move(base);
 	return left;
 }
@@ -288,8 +280,6 @@ static expression *compare(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) == TYPE_GLBL_NONE_IMPLICIT_CAST)
-		derror(&operator, "type must be arithmetic-capable\n");*/
 	lex_move(base);
 	return left;
 }
@@ -339,8 +329,6 @@ static expression *bitwise_and(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "type must be integer\n");*/
 	lex_move(base);
 	return left;
 }
@@ -365,8 +353,6 @@ static expression *bitwise_xor(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "type must be integer\n");*/
 	lex_move(base);
 	return left;
 }
@@ -391,8 +377,6 @@ static expression *bitwise_or(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "type must be integer\n");*/
 	lex_move(base);
 	return left;
 }
@@ -417,8 +401,6 @@ static expression *logical_and(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "type must be integer or boolean\n");*/
 	lex_move(base);
 	return left;
 }
@@ -443,8 +425,6 @@ static expression *logical_or(void)
 		if (!lex_fetch(&operator))
 			break;
 	}
-	/*if (type_globalize(&type) != TYPE_GLBL_INTEGER)
-		derror(&operator, "type must be integer or boolean\n");*/
 	lex_move(base);
 	return left;
 }

@@ -6,4 +6,5 @@
 	mov rbp, rsp
 	sub rsp, 16
 	pop rbp
+	mov ebx, 4 ; primary(size = 4)
 	pop rbp
