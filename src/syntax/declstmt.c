@@ -22,7 +22,7 @@ void declaration(void)
 	}
 
 	if (!decl((const char *)tok.value.str, &t)) {
-		derror(&tok, "duplicate declaration; shadowing is not allowed in Food (at least yet)\n");
+		derror(&tok, "duplicate declaration; shadowing is not allowed in Food 1.0\n");
 		return;
 	}
 
@@ -72,14 +72,24 @@ void statement(void)
 			return;
 		
 		case '{': {
+			size_t to_allocate = 0;
 			lex_fetch(&tok);
 			scope_enter();
 			parse_locals();
+			to_allocate = required_size_for_scope();
+			if (to_allocate) {
+				code("push rbp");
+				code("mov rbp, rsp");
+				code("sub rsp, %d", to_allocate);
+			}
 			while (lex_peek(&tok) && tok.kind != '}') {
 				statement();
 			}
 			lex_fetch(&tok);
 			scope_leave();
+			if (to_allocate) {
+				code("pop rbp");
+			}
 			return;
 		}
 
@@ -162,6 +172,53 @@ void statement(void)
 			statement();
 			goto_label("jmp", condition_label);
 			here_label(lead_label);
+			return;
+		}
+
+		case KEYWORD_DO: {
+			uint64_t do_label;
+			expression *condition;
+			int condition_reg;
+			lex_fetch(&tok);
+			do_label = label();
+			here_label(do_label);
+			statement();
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected while keyword\n");
+				return;
+			}
+			if (tok.kind != KEYWORD_WHILE) {
+				derror(&tok, "expected closing bracket )\n");
+				return;
+			}
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected open bracket (\n");
+				return;
+			}
+			if (tok.kind != '(') {
+				derror(&tok, "expected open bracket (\n");
+				return;
+			}
+			condition = parse_expression();
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected closing bracket )\n");
+				return;
+			}
+			if (tok.kind != ')') {
+				derror(&tok, "expected closing bracket )\n");
+				return;
+			}
+			if (!lex_fetch(&tok)) {
+				derror(&tok, "expected semicolon ;\n");
+				return;
+			}
+			if (tok.kind != ';') {
+				derror(&tok, "expected semicolon ;\n");
+				return;
+			}
+			condition_reg = g_expression(condition);
+			code("test %s, %s", rget(condition_reg, 1), rget(condition_reg, 1));
+			goto_label("jne", do_label);
 			return;
 		}
 

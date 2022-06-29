@@ -2,6 +2,7 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 static scope base;
 static scope *head = &base;
@@ -69,8 +70,11 @@ static bool_t internal_declared(scope *s, const char *name)
 {
 	size_t i;
 
+	assert(name);
+
 	/* 1. First, search in current scope */
 	for (i = 0; i < s->symbolcount; i++) {
+		assert(s->symbols[i].name);
 		if (!strcmp(s->symbols[i].name, name))
 			return TRUE;
 	}
@@ -93,22 +97,22 @@ bool_t decl(const char *name, foodtype *t)
 	/* 1. Allocating space */
 	if (head->symbolcount == 0) {
 		/* No symbols yet? No problem */
+		head->symbolcount++;
 		head->symbols = malloc(sizeof(symbol));
 	} else {
 		/* Resizing array to allow for more symbols */
+		head->symbolcount++;
 		head->symbols = realloc(head->symbols, sizeof(symbol) * head->symbolcount);
 	}
-	head->symbols[head->symbolcount].name = name; /* No cloning, nah */
-	memcpy(&(head->symbols[head->symbolcount++].t), t, sizeof(foodtype));
+	head->symbols[head->symbolcount - 1].name = malloc(strlen(name));
+	strcpy((char *)head->symbols[head->symbolcount - 1].name, name);
+	memcpy(&(head->symbols[head->symbolcount - 1].t), t, sizeof(foodtype));
 	return TRUE;
 }
 
 bool_t decltype(foodtype *dest, const char *name)
 {
 	size_t i;
-
-	if (!declared(name))
-		return FALSE; /* Fails if no declaration exists. */
 	
 	for (i = 0; i < head->symbolcount; i++) {
 		if (!strcmp(head->symbols[i].name, name)) {
@@ -116,7 +120,7 @@ bool_t decltype(foodtype *dest, const char *name)
 			return TRUE;
 		}
 	}
-	abort(); /* Not supposed to happen. Kept here just in case. */
+	return FALSE;
 }
 
 static void dump_node(scope *s, int indent)
@@ -138,4 +142,18 @@ static void dump_node(scope *s, int indent)
 void dump_all(void)
 {
 	dump_node(&base, 0);
+}
+
+size_t required_size_for_scope(void)
+{
+	size_t required = 0;
+	size_t i;
+	for (i = 0; i < head->symbolcount; i++) {
+		size_t objsize = rsizeof(&head->symbols[i].t);
+		required += objsize;
+	}
+	
+	if (required % 16 != 0)
+		required += 16 - required % 16;
+	return required;
 }

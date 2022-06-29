@@ -485,6 +485,9 @@ bool_t decltype(foodtype *dest, const char *name);
 /* Displays all of the declarations and subscopes. */
 void dump_all(void);
 
+/* Gets the required stack for the current scope. */
+size_t required_size_for_scope(void);
+
 /* === DRIVER === */
 
 /* Compiles a single object. */
