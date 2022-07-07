@@ -151,16 +151,22 @@ static long double s_pow10(int8_t raiseTo)
 static bool_t s_parse_number(lex_value *yield)
 {
 	uint64_t result = 0;
-	char c = s_advance();
+	char c;
 
+	c = s_advance();
 	/* Octal, binary and hex number parsing */
 	if (c == '0') {
 		c = s_advance();
+
+
+		/* If no prefix is set, or there is no octal digit */
 		if (c != 'b' && c != 'B' && c != 'x' && c != 'X' && !(c >= '0' && c <= '7')) {
 			s_rewind_once(c);
 			yield->u64 = result;
 			goto zero;
 		}
+
+
 		/* Binary parsing */
 		if (c == 'b' || c == 'B') {
 			c = s_advance();
@@ -195,7 +201,8 @@ zero:
 	if (c == '.') {
 		long double ldResult = result;
 		long double scale = 1;
-		c = s_advance();
+		s_advance();
+		c = s_advance(); /* digit */
 		/* Decimal part */
 		while (isdigit(c)) {
 			scale /= 10;

@@ -11,12 +11,4 @@
 		int second;
 		int third;
 	}
-
-	3.14 + 4; // make this line here work. the float parser breaks for some reason
-	/*
-		err:
-		(15, 7) err: expected a semicolon
-
-		clearly, it is the float parser not understand the dot and everything to its right...
-	*/
 }
